@@ -4,8 +4,7 @@ import Data.Maybe
 import Lexer 
 import Parser 
 import Types
-
-
+import Interpreter
 ----------Runner 
 
 main :: IO ()
@@ -34,9 +33,15 @@ main = do
   file = fileName tok 
   }
 
+
   let newParser = parse parser 
 
-  print(currentNode newParser)
+  let intptr = Interpreter {intprFileName = file parser}
+
+  let result = visit (fromJust (currentNode newParser)) intptr
+
+  -- print (nodeType bruh)
+  print(numberValue result)
   
   main 
   return ()

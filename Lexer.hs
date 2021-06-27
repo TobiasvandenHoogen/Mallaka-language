@@ -76,6 +76,6 @@ makeNumber lexer =
       | otherwise = 
         if dotCount == 0
         then
-          addToken lexer Token{tokenType = intType definedTypes, val = Just(IntVal(read numberString :: Int)), pos = currentPosition lexer}
+          addToken lexer Token{tokenType = intType definedTypes, val = Just(Int(read numberString :: Int)), pos = currentPosition lexer}
         else
-          addToken lexer Token{tokenType = floatType definedTypes, val = Just(FloatVal(read numberString :: Float)), pos = currentPosition lexer}
+          addToken lexer Token{tokenType = floatType definedTypes, val = Just(Float(read numberString :: Float)), pos = currentPosition lexer}

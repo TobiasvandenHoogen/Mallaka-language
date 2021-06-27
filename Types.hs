@@ -2,9 +2,10 @@ module Types where
 
 type Ident = String 
 
-data Value = IntVal Int |
-  FloatVal Float
-  deriving Show
+data Value = Int Int |
+  Float Float
+  deriving (Eq, Show)
+
 
 data Types = Types{intType :: String, 
         floatType :: String,

@@ -8,7 +8,8 @@ import Types
 data Node = Node{
   leftNode :: Maybe Node,
   token :: Token,
-  rightNode :: Maybe Node}
+  rightNode :: Maybe Node,
+  nodeType :: String}
   deriving Show  
 
 data Parser = Parser{
@@ -18,10 +19,6 @@ data Parser = Parser{
   currentNode :: Maybe Node,
   file :: String }
   deriving Show 
-
-newtype ParseChecker = ParseChecker{
-  node :: Node
-}
 
 advanceParser :: Parser -> Parser
 advanceParser parser = 
@@ -39,13 +36,13 @@ advanceParser parser =
 factor :: Parser -> Parser 
 factor parser 
   | (tokenType (currentToken parser) == intType definedTypes) || (tokenType (currentToken parser) == floatType definedTypes) = 
-    advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing}}
+    advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
   | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) = 
-    newParser  { currentNode = Just Node{leftNode = currentNode newParser, token = currentToken parser, rightNode = Nothing}}
+    newParser  { currentNode = Just Node{leftNode = currentNode newParser, token = currentToken parser, rightNode = Nothing, nodeType = "UnaryNode"}}
   | tokenType (currentToken parser) == leftParent definedTypes = 
     if tokenType (currentToken expressionParser) == rightParent definedTypes
     then advanceParser expressionParser 
-    else throwError(InvalidSyntaxError (file parser) ")" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
+    else throwError(InvalidSyntaxError (file parser) ")" ("\"" ++ tokenType (currentToken expressionParser) ++ "\"") (pos (currentToken expressionParser)))
   | otherwise = 
     throwError(InvalidSyntaxError (file parser) "integer/float" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   where 
@@ -57,7 +54,7 @@ term :: Parser -> Maybe Node -> Parser
 term parser node  
   | isNothing node = term newParser (currentNode newParser)
   | (tokenType (currentToken parser) == multiplyOperation definedTypes) || (tokenType (currentToken parser) == divisionOperation definedTypes) =
-    term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser}))
+    term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
   | otherwise = parser{currentNode = node}
   where
     newParser = factor parser 
@@ -69,7 +66,7 @@ expression :: Parser -> Maybe Node -> Parser
 expression parser node  
   | isNothing node = expression newParser (currentNode newParser)
   | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) =
-    expression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser}))
+    expression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
   | otherwise = parser{currentNode = node}
   where
     newParser = term parser Nothing 
