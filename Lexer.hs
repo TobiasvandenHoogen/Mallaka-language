@@ -54,6 +54,8 @@ createTokens lexer =
               | currentChar lexer == '-' = addToken (advanceLexer lexer) Token {tokenType = minusOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '*' = addToken (advanceLexer lexer) Token {tokenType = multiplyOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '/' = addToken (advanceLexer lexer) Token {tokenType = divisionOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '%' = addToken (advanceLexer lexer) Token {tokenType = modOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '^' = addToken (advanceLexer lexer) Token {tokenType = powerOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '(' = addToken (advanceLexer lexer) Token {tokenType = leftParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == ')' = addToken (advanceLexer lexer) Token {tokenType = rightParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | otherwise = throwError(InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))

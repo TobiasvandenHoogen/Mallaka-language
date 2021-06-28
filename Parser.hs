@@ -31,14 +31,12 @@ advanceParser parser =
                         currentToken = newToken,
                         currentNode = currentNode parser,
                         file = file parser}
-    in result  
+    in result 
 
-factor :: Parser -> Parser 
-factor parser 
+atom :: Parser -> Parser  
+atom parser 
   | (tokenType (currentToken parser) == intType definedTypes) || (tokenType (currentToken parser) == floatType definedTypes) = 
     advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
-  | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) = 
-    newParser  { currentNode = Just Node{leftNode = currentNode newParser, token = currentToken parser, rightNode = Nothing, nodeType = "UnaryNode"}}
   | tokenType (currentToken parser) == leftParent definedTypes = 
     if tokenType (currentToken expressionParser) == rightParent definedTypes
     then advanceParser expressionParser 
@@ -46,20 +44,40 @@ factor parser
   | otherwise = 
     throwError(InvalidSyntaxError (file parser) "integer/float" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   where 
-      newParser = factor (advanceParser parser)
-      expressionParser = expression (advanceParser parser) Nothing 
+    expressionParser = expression (advanceParser parser) Nothing 
 
-
-term :: Parser -> Maybe Node -> Parser
-term parser node  
-  | isNothing node = term newParser (currentNode newParser)
-  | (tokenType (currentToken parser) == multiplyOperation definedTypes) || (tokenType (currentToken parser) == divisionOperation definedTypes) =
-    term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+factor :: Parser -> Parser 
+factor parser 
+  | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) = 
+    newParser  { currentNode = Just Node{leftNode = currentNode newParser, token = currentToken parser, rightNode = Nothing, nodeType = "UnaryNode"}}
+  | otherwise = atom parser 
+  where 
+    newParser = atom (advanceParser parser)
+  
+exponential :: Parser -> Maybe Node -> Parser 
+exponential parser node 
+  | isNothing node = exponential newParser (currentNode newParser)
+  | tokenType (currentToken parser) == powerOperation definedTypes  =
+      term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
   | otherwise = parser{currentNode = node}
   where
     newParser = factor parser 
     newNewParser = advanceParser parser
     returnParser = factor newNewParser
+
+term :: Parser -> Maybe Node -> Parser
+term parser node  
+  | isNothing node = term newParser (currentNode newParser)
+  | (tokenType (currentToken parser) == multiplyOperation definedTypes) 
+    || (tokenType (currentToken parser) == divisionOperation definedTypes) 
+    || (tokenType (currentToken parser) == modOperation definedTypes) 
+    || (tokenType (currentToken parser) == powerOperation definedTypes)  =
+      term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+  | otherwise = parser{currentNode = node}
+  where
+    newParser = exponential parser Nothing 
+    newNewParser = advanceParser parser
+    returnParser = exponential newNewParser Nothing 
 
 
 expression :: Parser -> Maybe Node -> Parser 

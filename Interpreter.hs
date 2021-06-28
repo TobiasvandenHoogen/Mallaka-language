@@ -1,5 +1,6 @@
 module Interpreter where 
 import Data.Maybe
+import Data.Fixed
 import Parser
 import Exception 
 import Types
@@ -38,6 +39,18 @@ divValue (Int a) (Float b) = Float( fromIntegral a / b)
 divValue (Float a) (Int b) = Float( a / fromIntegral b)
 divValue (Float a) (Float b) = Float(a / b)
 
+modValue :: Value -> Value -> Value
+modValue (Int a) (Int b) = Int( a `mod` b)
+modValue (Int a) (Float b) = Float( mod' (fromIntegral a) b)
+modValue (Float a) (Int b) = Float( mod' a (fromIntegral b))
+modValue (Float a) (Float b) = Float( mod' a b)
+
+powValue :: Value -> Value -> Value
+powValue (Int a) (Int b) = Int( a ^ b)
+powValue (Int a) (Float b) = Float( fromIntegral a ** b)
+powValue (Float a) (Int b) = Float( a ** fromIntegral b)
+powValue (Float a) (Float b) = Float(a ** b)
+
 
 addNumber :: Number -> Number -> Number 
 addNumber num1 num2 = 
@@ -54,6 +67,15 @@ mulNumber num1 num2 =
 divNumber :: Number -> Number -> Number 
 divNumber num1 num2 = 
   Number{numberValue = divValue(numberValue num1) (numberValue num2), numPos = Nothing}
+
+modNumber :: Number -> Number -> Number 
+modNumber num1 num2 = 
+  Number{numberValue = modValue(numberValue num1) (numberValue num2), numPos = Nothing}
+
+powNumber :: Number -> Number -> Number 
+powNumber num1 num2 = 
+  Number{numberValue = powValue(numberValue num1) (numberValue num2), numPos = Nothing}
+
 
 isZero :: Value-> Bool
 isZero (Int a) 
@@ -81,6 +103,8 @@ visitBinaryOpNode node intptr
   | tokenType (token node) == minusOperation definedTypes = subNumber num1 num2
   | tokenType (token node) == multiplyOperation definedTypes = mulNumber num1 num2
   | tokenType (token node) == divisionOperation definedTypes = divNumber num1 numCheck 
+  | tokenType (token node) == modOperation definedTypes = modNumber num1 numCheck 
+  | tokenType (token node) == powerOperation definedTypes = powNumber num1 numCheck 
   where 
     num1 = visit (fromJust(leftNode node)) intptr
     num2 = visit (fromJust(rightNode node)) intptr
