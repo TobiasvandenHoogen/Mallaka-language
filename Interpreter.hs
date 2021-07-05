@@ -1,19 +1,53 @@
 module Interpreter where 
 import Data.Maybe
 import Data.Fixed
+import Data.Map
+import Prelude hiding (lookup)
 import Parser
 import Exception 
 import Types
 
-newtype Interpreter = Interpreter{
-  intprFileName :: String
+data Interpreter = Interpreter{
+  intprFileName :: String,
+  intEnv :: Environment,
+  currentResult :: Maybe Number
 }
+  deriving Show 
+
+data Environment = Environment{
+  lookupTable :: Map String Value,
+  parent :: Maybe Environment
+}
+  deriving Show 
 
 data Number = Number{
   numberValue :: Value,
   numPos :: Maybe Position
 }
   deriving Show 
+
+getEnvironmentValue :: Environment -> String -> Maybe Value
+getEnvironmentValue env name = 
+  if isNothing returnValue && isJust(parent env)
+  then getEnvironmentValue (fromJust(parent env))name
+  else returnValue
+  where 
+    returnValue = lookup name (lookupTable env)
+
+setEnvironmentValue :: Environment -> String -> Value -> Environment
+setEnvironmentValue env key value = 
+  env{lookupTable = newLookuptable}
+  where 
+    newLookuptable = insert key value (lookupTable env)
+
+removeEnvironmentValue :: Environment -> String -> Environment
+removeEnvironmentValue env key = 
+  env{lookupTable = newLookuptable}
+  where 
+    newLookuptable = delete key (lookupTable env)
+  
+getVariableName :: Value -> String 
+getVariableName (String a ) = a 
 
 addValue :: Value -> Value -> Value
 addValue (Int a) (Int b) = Int( a + b)
@@ -85,37 +119,61 @@ isZero (Float a)
   | a == 0.0 = True
   | otherwise = False
 
+setResult :: Number -> Interpreter -> Interpreter
+setResult num inter =
+  inter{currentResult = Just num}
 
-visit :: Node -> Interpreter -> Number 
+visit :: Node -> Interpreter -> Interpreter
 visit node intptr
   | nodeType node == "NumberNode" = visitNumberNode node intptr
+  | nodeType node == "VarAccessNode" = visitVarAccessNode node intptr
+  | nodeType node == "AssignNode" = visitVarAssignNode node intptr
   | nodeType node == "BinaryOpNode" = visitBinaryOpNode node intptr
   | nodeType node == "UnaryNode" = visitUnaryNode node intptr
   | otherwise = error "Internal error in interpreter"
 
-visitNumberNode :: Node -> Interpreter -> Number 
-visitNumberNode node intptr =
-  Number{numberValue = fromJust(val (token node)), numPos = Just (pos (token node))}
+visitNumberNode :: Node -> Interpreter -> Interpreter
+visitNumberNode node inter =
+  setResult (Number{numberValue = fromJust(val (token node)), numPos = Just (pos (token node))}) inter
 
-visitBinaryOpNode :: Node -> Interpreter -> Number
-visitBinaryOpNode node intptr
-  | tokenType (token node) == plusOperation definedTypes = addNumber num1 num2
-  | tokenType (token node) == minusOperation definedTypes = subNumber num1 num2
-  | tokenType (token node) == multiplyOperation definedTypes = mulNumber num1 num2
-  | tokenType (token node) == divisionOperation definedTypes = divNumber num1 numCheck 
-  | tokenType (token node) == modOperation definedTypes = modNumber num1 numCheck 
-  | tokenType (token node) == powerOperation definedTypes = powNumber num1 numCheck 
+visitVarAccessNode :: Node -> Interpreter -> Interpreter
+visitVarAccessNode node intptr = 
+  if isJust(value)
+  then setResult Number{numberValue = fromJust(value), numPos = Just (pos (token node))} intptr
+  else throwError(NotDefinedError (intprFileName intptr) ( "\"" ++ getVariableName(fromJust(val (token node))) ++ "\"") (pos (token node)))
   where 
-    num1 = visit (fromJust(leftNode node)) intptr
-    num2 = visit (fromJust(rightNode node)) intptr
+    value = getEnvironmentValue (intEnv intptr) (getVariableName(fromJust(val (token node))))
+
+visitVarAssignNode :: Node -> Interpreter -> Interpreter
+visitVarAssignNode node intptr = 
+  newEnv
+  where
+    variableNode = fromJust(leftNode node)
+    valueNode = fromJust(currentResult (visit (fromJust(rightNode node)) intptr))
+    varName = getVariableName(fromJust(val (token variableNode)))
+    value = setResult valueNode intptr
+    valueResult = fromJust(currentResult value)
+    newEnv = value {intEnv = setEnvironmentValue (intEnv value) varName (numberValue valueResult)}
+
+visitBinaryOpNode :: Node -> Interpreter -> Interpreter
+visitBinaryOpNode node intptr
+  | tokenType (token node) == plusOperation definedTypes = setResult (addNumber num1 num2) intptr
+  | tokenType (token node) == minusOperation definedTypes = setResult (subNumber num1 num2) intptr
+  | tokenType (token node) == multiplyOperation definedTypes = setResult (mulNumber num1 num2) intptr
+  | tokenType (token node) == divisionOperation definedTypes = setResult (divNumber num1 numCheck) intptr
+  | tokenType (token node) == modOperation definedTypes = setResult (modNumber num1 numCheck) intptr
+  | tokenType (token node) == powerOperation definedTypes = setResult (powNumber num1 numCheck) intptr
+  where 
+    num1 = fromJust(currentResult (visit (fromJust(leftNode node)) intptr))
+    num2 = fromJust(currentResult (visit (fromJust(rightNode node)) intptr))
     numCheck = 
       if isZero (numberValue num2)
       then throwError(DivisionByZeroError (intprFileName intptr)  (pos(token node)))
       else num2
 
-visitUnaryNode :: Node -> Interpreter -> Number
+visitUnaryNode :: Node -> Interpreter -> Interpreter
 visitUnaryNode node intptr
-  | tokenType (token node) == minusOperation definedTypes = mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing}
-  | otherwise = num1
+  | tokenType (token node) == minusOperation definedTypes = setResult (mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing}) intptr
+  | otherwise = setResult num1 intptr
   where 
-    num1 = visit (fromJust(leftNode node)) intptr
+    num1 = fromJust(currentResult(visit (fromJust(leftNode node)) intptr))

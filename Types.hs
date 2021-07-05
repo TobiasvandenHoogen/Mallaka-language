@@ -3,17 +3,20 @@ module Types where
 type Ident = String 
 
 data Value = Int Int |
-  Float Float
+  Float Float |
+  String String 
   deriving (Eq, Show)
 
 
 data Types = Types{intType :: String, 
         floatType :: String,
+        identifier :: String,
         plusOperation :: String,
         minusOperation :: String,
         multiplyOperation :: String,
         divisionOperation :: String,
         powerOperation :: String,
+        assignOperation :: String,
         modOperation :: String,
         leftParent :: String,
         rightParent :: String,
@@ -32,12 +35,14 @@ data Token = Token{ tokenType :: String,
 definedTypes :: Types 
 definedTypes = Types{intType = "integer",
                  floatType = "float",
+                 identifier = "identifier",
                  plusOperation = "+",
                  minusOperation = "-",
                  multiplyOperation = "*",
                  divisionOperation = "/",
                  modOperation = "%",
                  powerOperation = "^",
+                 assignOperation = "=",
                  leftParent = "(",
                  rightParent = ")",
                  endOfFile = "EOF"}

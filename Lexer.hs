@@ -1,6 +1,7 @@
 module Lexer where 
 
 import Data.Char
+import Data.Maybe
 import Exception 
 import Types 
 
@@ -49,6 +50,7 @@ createTokens lexer =
           createTokens newLexer where 
             newLexer
               | isDigit (currentChar lexer) = makeNumber lexer 
+              | isAlpha (currentChar lexer) = makeWord lexer 
               | currentChar lexer == ' ' = advanceLexer lexer 
               | currentChar lexer == '+' = addToken (advanceLexer lexer) Token {tokenType = plusOperation definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '-' = addToken (advanceLexer lexer) Token {tokenType = minusOperation definedTypes, val = Nothing, pos = currentPosition lexer }
@@ -56,6 +58,7 @@ createTokens lexer =
               | currentChar lexer == '/' = addToken (advanceLexer lexer) Token {tokenType = divisionOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '%' = addToken (advanceLexer lexer) Token {tokenType = modOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '^' = addToken (advanceLexer lexer) Token {tokenType = powerOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '=' = addToken (advanceLexer lexer) Token {tokenType = assignOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '(' = addToken (advanceLexer lexer) Token {tokenType = leftParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == ')' = addToken (advanceLexer lexer) Token {tokenType = rightParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | otherwise = throwError(InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))
@@ -64,6 +67,15 @@ createTokens lexer =
 addToken :: Lexer -> Token -> Lexer
 addToken lexer token = 
   lexer {tokenList = tokenList lexer ++ [token]}
+
+makeWord :: Lexer -> Lexer 
+makeWord lexer = 
+  makeLetters lexer "" (currentPosition lexer) where 
+    makeLetters :: Lexer -> String -> Position -> Lexer
+    makeLetters lexer string pos 
+      | isDigit(currentChar lexer) || isAlpha(currentChar lexer) || (currentChar lexer == '_') =
+        makeLetters (advanceLexer lexer) (string ++ [currentChar lexer]) pos
+      | otherwise = addToken lexer Token{tokenType = identifier definedTypes, val = Just(String(string)), pos = pos}
 
 
 makeNumber :: Lexer -> Lexer
@@ -75,7 +87,7 @@ makeNumber lexer =
         makeNumbers (advanceLexer lexer) (dotCount + 1) (numberString ++ [currentChar lexer])
       | isDigit(currentChar lexer) = 
         makeNumbers (advanceLexer lexer) dotCount (numberString ++ [currentChar lexer])
-      | otherwise = 
+      | otherwise =
         if dotCount == 0
         then
           addToken lexer Token{tokenType = intType definedTypes, val = Just(Int(read numberString :: Int)), pos = currentPosition lexer}

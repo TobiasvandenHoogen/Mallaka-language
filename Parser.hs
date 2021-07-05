@@ -37,6 +37,8 @@ atom :: Parser -> Parser
 atom parser 
   | (tokenType (currentToken parser) == intType definedTypes) || (tokenType (currentToken parser) == floatType definedTypes) = 
     advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
+  | tokenType (currentToken parser) == identifier definedTypes =  
+    advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "VarAccessNode"}}
   | tokenType (currentToken parser) == leftParent definedTypes = 
     if tokenType (currentToken expressionParser) == rightParent definedTypes
     then advanceParser expressionParser 
@@ -70,8 +72,7 @@ term parser node
   | isNothing node = term newParser (currentNode newParser)
   | (tokenType (currentToken parser) == multiplyOperation definedTypes) 
     || (tokenType (currentToken parser) == divisionOperation definedTypes) 
-    || (tokenType (currentToken parser) == modOperation definedTypes) 
-    || (tokenType (currentToken parser) == powerOperation definedTypes)  =
+    || (tokenType (currentToken parser) == modOperation definedTypes) =
       term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
   | otherwise = parser{currentNode = node}
   where
@@ -83,10 +84,15 @@ term parser node
 expression :: Parser -> Maybe Node -> Parser 
 expression parser node  
   | isNothing node = expression newParser (currentNode newParser)
+  | tokenType (currentToken parser) == assignOperation definedTypes =
+    if tokenType (token varNode) == identifier definedTypes
+    then expression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "AssignNode"}))
+    else throwError(InvalidSyntaxError (file parser) "identifier" ("\"" ++ tokenType (token varNode) ++ "\"") (pos (token varNode)))
   | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) =
     expression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
   | otherwise = parser{currentNode = node}
   where
+    varNode = fromJust node
     newParser = term parser Nothing 
     newNewParser = advanceParser parser
     returnParser = term newNewParser Nothing

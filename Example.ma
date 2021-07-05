@@ -1,6 +1,6 @@
-Application: Desktop 
 
-intSum {integer} [integer num1, integer num2]->
+
+proces intSum {integer} [integer num1, integer num2]->
     intSum = num1 + num2<-
 
 Main {integer}->

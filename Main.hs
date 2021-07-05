@@ -3,45 +3,52 @@ import System.IO
 import Data.Maybe
 import Lexer 
 import Parser 
+import Data.Map
 import Types
 import Interpreter
 ----------Runner 
 
-main :: IO ()
-main = do 
+runResult :: Interpreter -> String -> Interpreter
+runResult inter input = 
+  newInter 
+  where 
+    lexer = Lexer {
+      fileName = "Shell",
+      inputText = input , 
+      currentLine = 0, 
+      currentPosition = Position{
+                          index = 1,
+                          column = 1,
+                          line = 0}, 
+      currentChar = head input, 
+      tokenList = []}
+    tokenLexer = createTokens lexer 
+    parser = Parser {
+      tokens = tokenList tokenLexer,
+      tokenIndex = 1,
+      currentToken = head (tokenList tokenLexer),
+      currentNode = Nothing,
+      file = fileName tokenLexer}
+    nodeTree = parse parser 
+    newInter = visit (fromJust (currentNode nodeTree)) inter
+
+runInterpreter :: Interpreter -> IO ()
+runInterpreter inter = do 
   hSetBuffering stdout NoBuffering
   putStr ">> " 
   input <- getLine
-  let lexer = Lexer {
-    fileName = "Shell",
-    inputText = input , 
-    currentLine = 0, 
-    currentPosition = 
-      Position{index = 1,
-        column = 1,
-        line = 0}, 
-    currentChar = head input, 
-    tokenList = []}
 
-  let tok = createTokens lexer 
+  let result = runResult inter input
+  let printRes = fromJust(currentResult result)
+  print( numberValue printRes )
+  runInterpreter result
 
-  let parser = Parser{
-  tokens = tokenList tok,
-  tokenIndex = 1,
-  currentToken = head (tokenList tok),
-  currentNode = Nothing,
-  file = fileName tok 
-  }
-
-
-  let newParser = parse parser 
-
-  let intptr = Interpreter {intprFileName = file parser}
-
-  let result = visit (fromJust (currentNode newParser)) intptr
-
-  -- print (nodeType bruh)
-  print(numberValue result)
-  
+main :: IO ()
+main = do
+  let intptr = Interpreter {intprFileName = "Shell",
+  intEnv = Environment{lookupTable = Data.Map.empty, 
+  parent = Nothing},
+  currentResult = Nothing}
+  runInterpreter intptr
   main 
   return ()

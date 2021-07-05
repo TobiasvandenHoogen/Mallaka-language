@@ -2,9 +2,10 @@ module Exception where
 import Types
 
 
-data Error = InvalidCharError String String Position|
+data Error = InvalidCharError String String Position |
              InvalidSyntaxError String String String Position |
-             DivisionByZeroError String Position
+             DivisionByZeroError String Position |
+             NotDefinedError String String Position 
 
 throwError :: Error -> a
 
@@ -16,3 +17,6 @@ throwError (InvalidSyntaxError fn typ err pos) = error (
 
 throwError (DivisionByZeroError fn pos) = error ( 
   "\n" ++ fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: division by zero.")
+
+throwError (NotDefinedError fn var pos) = error ( 
+  "\n" ++ fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: " ++ var ++ " is not defined.")
