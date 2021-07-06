@@ -58,6 +58,8 @@ factor parser
   
 exponential :: Parser -> Maybe Node -> Parser 
 exponential parser node 
+  | tokenType (currentToken parser) == sqrootOperation definedTypes  =
+    term returnParser (Just (Node{leftNode = Nothing, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
   | isNothing node = exponential newParser (currentNode newParser)
   | tokenType (currentToken parser) == powerOperation definedTypes  =
       term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))

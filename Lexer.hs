@@ -75,7 +75,12 @@ makeWord lexer =
     makeLetters lexer string pos 
       | isDigit(currentChar lexer) || isAlpha(currentChar lexer) || (currentChar lexer == '_') =
         makeLetters (advanceLexer lexer) (string ++ [currentChar lexer]) pos
-      | otherwise = addToken lexer Token{tokenType = identifier definedTypes, val = Just(String(string)), pos = pos}
+      | otherwise = addToken lexer (getKeyWord string pos)
+
+getKeyWord :: String -> Position -> Token 
+getKeyWord keyword pos
+  | keyword == "carrot" = Token{tokenType = sqrootOperation definedTypes, val = Nothing, pos = pos}
+  | otherwise = Token{tokenType = identifier definedTypes, val = Just(String(keyword)), pos = pos}
 
 
 makeNumber :: Lexer -> Lexer

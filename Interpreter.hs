@@ -85,6 +85,10 @@ powValue (Int a) (Float b) = Float( fromIntegral a ** b)
 powValue (Float a) (Int b) = Float( a ** fromIntegral b)
 powValue (Float a) (Float b) = Float(a ** b)
 
+sqrootValue :: Value -> Value 
+sqrootValue (Int a) = Int(round (sqrt (fromIntegral a)))
+sqrootValue (Float a) = Float( sqrt a)
+
 
 addNumber :: Number -> Number -> Number 
 addNumber num1 num2 = 
@@ -109,6 +113,10 @@ modNumber num1 num2 =
 powNumber :: Number -> Number -> Number 
 powNumber num1 num2 = 
   Number{numberValue = powValue(numberValue num1) (numberValue num2), numPos = Nothing}
+
+sqrootNumber :: Number -> Number 
+sqrootNumber num1 = 
+  Number{numberValue = sqrootValue(numberValue num1), numPos = Nothing }
 
 
 isZero :: Value-> Bool
@@ -161,8 +169,9 @@ visitBinaryOpNode node intptr
   | tokenType (token node) == minusOperation definedTypes = setResult (subNumber num1 num2) intptr
   | tokenType (token node) == multiplyOperation definedTypes = setResult (mulNumber num1 num2) intptr
   | tokenType (token node) == divisionOperation definedTypes = setResult (divNumber num1 numCheck) intptr
-  | tokenType (token node) == modOperation definedTypes = setResult (modNumber num1 numCheck) intptr
-  | tokenType (token node) == powerOperation definedTypes = setResult (powNumber num1 numCheck) intptr
+  | tokenType (token node) == modOperation definedTypes = setResult (modNumber num1 num2) intptr
+  | tokenType (token node) == powerOperation definedTypes = setResult (powNumber num1 num2) intptr
+  | tokenType (token node) == sqrootOperation definedTypes = setResult (sqrootNumber num2) intptr
   where 
     num1 = fromJust(currentResult (visit (fromJust(leftNode node)) intptr))
     num2 = fromJust(currentResult (visit (fromJust(rightNode node)) intptr))
