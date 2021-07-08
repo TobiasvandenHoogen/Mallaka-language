@@ -6,7 +6,6 @@ import Exception
 import Types 
 
 
-
 data Lexer = Lexer{ 
     fileName :: String,
     inputText :: String,
@@ -58,10 +57,28 @@ createTokens lexer =
               | currentChar lexer == '/' = addToken (advanceLexer lexer) Token {tokenType = divisionOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '%' = addToken (advanceLexer lexer) Token {tokenType = modOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '^' = addToken (advanceLexer lexer) Token {tokenType = powerOperation definedTypes, val = Nothing, pos = currentPosition lexer }
-              | currentChar lexer == '=' = addToken (advanceLexer lexer) Token {tokenType = assignOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '=' =
+                if currentChar checkNextChar == '=' 
+                then addToken (advanceLexer checkNextChar) Token {tokenType = equalOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                else addToken (advanceLexer lexer) Token {tokenType = assignOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '(' = addToken (advanceLexer lexer) Token {tokenType = leftParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == ')' = addToken (advanceLexer lexer) Token {tokenType = rightParent definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '&' = addToken (advanceLexer lexer) Token {tokenType = andOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '|' = addToken (advanceLexer lexer) Token {tokenType = orOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '!' = 
+                if currentChar checkNextChar == '=' 
+                then addToken (advanceLexer checkNextChar) Token {tokenType = notEqualOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                else addToken (advanceLexer lexer) Token {tokenType = notOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '<' =
+                if currentChar checkNextChar == '=' 
+                then addToken (advanceLexer checkNextChar) Token {tokenType = lessEqOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                else addToken (advanceLexer lexer) Token {tokenType = lessOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '>' =
+                if currentChar checkNextChar == '=' 
+                then addToken (advanceLexer checkNextChar) Token {tokenType = greaterEqOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                else addToken (advanceLexer lexer) Token {tokenType = greaterOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | otherwise = throwError(InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))
+            checkNextChar = advanceLexer lexer 
 
 
 addToken :: Lexer -> Token -> Lexer
@@ -79,7 +96,9 @@ makeWord lexer =
 
 getKeyWord :: String -> Position -> Token 
 getKeyWord keyword pos
-  | keyword == "carrot" = Token{tokenType = sqrootOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == sqrootOperation definedTypes = Token{tokenType = sqrootOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == trueBool definedTypes = Token{tokenType = trueBool definedTypes, val = Just(Bool(True)), pos = pos}
+  | keyword == falseBool definedTypes = Token{tokenType = falseBool definedTypes, val = Just(Bool(False)), pos = pos}
   | otherwise = Token{tokenType = identifier definedTypes, val = Just(String(keyword)), pos = pos}
 
 

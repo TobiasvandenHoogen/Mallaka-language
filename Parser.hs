@@ -35,8 +35,11 @@ advanceParser parser =
 
 atom :: Parser -> Parser  
 atom parser 
-  | (tokenType (currentToken parser) == intType definedTypes) || (tokenType (currentToken parser) == floatType definedTypes) = 
-    advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
+  | (tokenType (currentToken parser) == intType definedTypes) || 
+    (tokenType (currentToken parser) == floatType definedTypes) ||
+    (tokenType (currentToken parser) == trueBool definedTypes) ||
+    (tokenType (currentToken parser) == falseBool definedTypes) = 
+      advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
   | tokenType (currentToken parser) == identifier definedTypes =  
     advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "VarAccessNode"}}
   | tokenType (currentToken parser) == leftParent definedTypes = 
@@ -50,7 +53,9 @@ atom parser
 
 factor :: Parser -> Parser 
 factor parser 
-  | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) = 
+  | (tokenType (currentToken parser) == plusOperation definedTypes) || 
+    (tokenType (currentToken parser) == minusOperation definedTypes) ||
+    (tokenType (currentToken parser) == notOperation definedTypes) =  
     newParser  { currentNode = Just Node{leftNode = currentNode newParser, token = currentToken parser, rightNode = Nothing, nodeType = "UnaryNode"}}
   | otherwise = atom parser 
   where 
@@ -82,6 +87,43 @@ term parser node
     newNewParser = advanceParser parser
     returnParser = exponential newNewParser Nothing 
 
+arithmeticExpression :: Parser -> Maybe Node -> Parser 
+arithmeticExpression parser node 
+  | isNothing node = arithmeticExpression newParser (currentNode newParser)
+  | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) =
+    arithmeticExpression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+  | otherwise = parser{currentNode = node}
+  where
+    newParser = term parser Nothing 
+    newNewParser = advanceParser parser
+    returnParser = term newNewParser Nothing
+
+compareExpression :: Parser -> Maybe Node -> Parser 
+compareExpression parser node 
+  | isNothing node = compareExpression newParser (currentNode newParser)
+  | (tokenType (currentToken parser) == equalOperation definedTypes) || 
+    (tokenType (currentToken parser) == notEqualOperation definedTypes) || 
+    (tokenType (currentToken parser) == lessOperation definedTypes) ||
+    (tokenType (currentToken parser) == greaterOperation definedTypes) || 
+    (tokenType (currentToken parser) == lessEqOperation definedTypes) ||
+    (tokenType (currentToken parser) == greaterEqOperation definedTypes) = 
+    compareExpression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+  | otherwise = parser{currentNode = node}
+  where
+    newParser = arithmeticExpression parser Nothing 
+    newNewParser = advanceParser parser
+    returnParser = arithmeticExpression newNewParser Nothing
+
+logicalExpression :: Parser -> Maybe Node -> Parser 
+logicalExpression parser node 
+  | isNothing node = logicalExpression newParser (currentNode newParser)
+  | (tokenType (currentToken parser) == andOperation definedTypes) || (tokenType (currentToken parser) == orOperation definedTypes) =
+    logicalExpression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+  | otherwise = parser{currentNode = node}
+  where
+    newParser = compareExpression parser Nothing 
+    newNewParser = advanceParser parser
+    returnParser = compareExpression newNewParser Nothing
 
 expression :: Parser -> Maybe Node -> Parser 
 expression parser node  
@@ -95,9 +137,9 @@ expression parser node
   | otherwise = parser{currentNode = node}
   where
     varNode = fromJust node
-    newParser = term parser Nothing 
+    newParser = logicalExpression parser Nothing 
     newNewParser = advanceParser parser
-    returnParser = term newNewParser Nothing
+    returnParser = logicalExpression newNewParser Nothing
 
 parse :: Parser -> Parser 
 parse parser = 

@@ -2,6 +2,7 @@ module Interpreter where
 import Data.Maybe
 import Data.Fixed
 import Data.Map
+import Data.Bits 
 import Prelude hiding (lookup)
 import Parser
 import Exception 
@@ -89,6 +90,78 @@ sqrootValue :: Value -> Value
 sqrootValue (Int a) = Int(round (sqrt (fromIntegral a)))
 sqrootValue (Float a) = Float( sqrt a)
 
+notValue :: Value -> Value 
+notValue (Int a) = Int(complement a)
+notValue (Float a) = Int(complement (round a))
+notValue (Bool a) = Bool(not a)
+
+andValue :: Value -> Value -> Value 
+andValue (Int a) (Int b) = Int(a .&. b)
+andValue (Float a) (Int b) = Int(round a .&. b)
+andValue (Int a) (Float b) = Int(a .&. round b)
+andValue (Float a) (Float b) = Int(round a .&. round b)
+andValue (Bool a) (Bool b) = Bool(a && b)
+
+orValue :: Value -> Value -> Value 
+orValue (Int a) (Int b) = Int(a .|. b)
+orValue (Float a) (Int b) = Int(round a .|. b)
+orValue (Int a) (Float b) = Int(a .|. round b)
+orValue (Float a) (Float b) = Int(round a .|. round b)
+orValue (Bool a) (Bool b) = Bool(a || b)
+
+eqComValue :: Value -> Value -> Value 
+eqComValue (Int a) (Float b) = Bool( fromIntegral a == b)
+eqComValue (Float a) (Int b) = Bool( a == fromIntegral b)
+eqComValue (Bool a) (Int b) = Bool(fromEnum a == b)
+eqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) == b)
+eqComValue (Int a) (Bool b) = Bool(a == fromEnum b)
+eqComValue (Float a) (Bool b) = Bool(a == fromIntegral(fromEnum b))
+eqComValue a b = Bool(a == b)
+
+neqComValue :: Value -> Value -> Value 
+neqComValue (Int a) (Float b) = Bool( fromIntegral a /= b)
+neqComValue (Float a) (Int b) = Bool( a /= fromIntegral b)
+neqComValue (Bool a) (Int b) = Bool(fromEnum a /= b)
+neqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) /= b)
+neqComValue (Int a) (Bool b) = Bool(a /= fromEnum b)
+neqComValue (Float a) (Bool b) = Bool(a /= fromIntegral(fromEnum b))
+neqComValue a b = Bool(a /= b)
+
+greaterComValue :: Value -> Value -> Value 
+greaterComValue (Int a) (Float b) = Bool( fromIntegral a > b)
+greaterComValue (Float a) (Int b) = Bool( a > fromIntegral b)
+greaterComValue (Bool a) (Int b) = Bool(fromEnum a > b)
+greaterComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) > b)
+greaterComValue (Int a) (Bool b) = Bool(a > fromEnum b)
+greaterComValue (Float a) (Bool b) = Bool(a > fromIntegral(fromEnum b))
+greaterComValue a b = Bool(a > b)
+
+lessComValue :: Value -> Value -> Value 
+lessComValue (Int a) (Float b) = Bool( fromIntegral a < b)
+lessComValue (Float a) (Int b) = Bool( a < fromIntegral b)
+lessComValue (Bool a) (Int b) = Bool(fromEnum a < b)
+lessComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) < b)
+lessComValue (Int a) (Bool b) = Bool(a < fromEnum b)
+lessComValue (Float a) (Bool b) = Bool(a < fromIntegral(fromEnum b))
+lessComValue a b = Bool(a < b)
+
+greaterEqComValue :: Value -> Value -> Value 
+greaterEqComValue (Int a) (Float b) = Bool( fromIntegral a >= b)
+greaterEqComValue (Float a) (Int b) = Bool( a >= fromIntegral b)
+greaterEqComValue (Bool a) (Int b) = Bool(fromEnum a >= b)
+greaterEqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) >= b)
+greaterEqComValue (Int a) (Bool b) = Bool(a >= fromEnum b)
+greaterEqComValue (Float a) (Bool b) = Bool(a >= fromIntegral(fromEnum b))
+greaterEqComValue a b = Bool(a >= b)
+
+lessEqComValue :: Value -> Value -> Value 
+lessEqComValue (Int a) (Float b) = Bool( fromIntegral a <= b)
+lessEqComValue (Float a) (Int b) = Bool( a <= fromIntegral b)
+lessEqComValue (Bool a) (Int b) = Bool(fromEnum a <= b)
+lessEqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) <= b)
+lessEqComValue (Int a) (Bool b) = Bool(a <= fromEnum b)
+lessEqComValue (Float a) (Bool b) = Bool(a <= fromIntegral(fromEnum b))
+lessEqComValue a b = Bool(a <= b)
 
 addNumber :: Number -> Number -> Number 
 addNumber num1 num2 = 
@@ -117,6 +190,42 @@ powNumber num1 num2 =
 sqrootNumber :: Number -> Number 
 sqrootNumber num1 = 
   Number{numberValue = sqrootValue(numberValue num1), numPos = Nothing }
+
+notNumber :: Number -> Number 
+notNumber num1 = 
+  Number{numberValue = notValue(numberValue num1), numPos = Nothing }
+
+andNumber :: Number -> Number -> Number 
+andNumber num1 num2 = 
+  Number{numberValue = andValue(numberValue num1) (numberValue num2), numPos = Nothing }
+
+orNumber :: Number -> Number -> Number 
+orNumber num1 num2 = 
+  Number{numberValue = orValue(numberValue num1) (numberValue num2), numPos = Nothing }
+
+eqNumber :: Number -> Number -> Number 
+eqNumber num1 num2 = 
+  Number{numberValue = eqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
+
+neqNumber :: Number -> Number -> Number 
+neqNumber num1 num2 = 
+  Number{numberValue = neqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
+
+greaterNumber :: Number -> Number -> Number 
+greaterNumber num1 num2 = 
+  Number{numberValue = greaterComValue(numberValue num1) (numberValue num2), numPos = Nothing }
+
+lessNumber :: Number -> Number -> Number 
+lessNumber num1 num2 = 
+  Number{numberValue = lessComValue(numberValue num1) (numberValue num2), numPos = Nothing }
+
+greaterEqNumber :: Number -> Number -> Number 
+greaterEqNumber num1 num2 = 
+  Number{numberValue = greaterEqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
+
+lessEqNumber :: Number -> Number -> Number 
+lessEqNumber num1 num2 = 
+  Number{numberValue = lessEqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
 
 
 isZero :: Value-> Bool
@@ -172,6 +281,14 @@ visitBinaryOpNode node intptr
   | tokenType (token node) == modOperation definedTypes = setResult (modNumber num1 num2) intptr
   | tokenType (token node) == powerOperation definedTypes = setResult (powNumber num1 num2) intptr
   | tokenType (token node) == sqrootOperation definedTypes = setResult (sqrootNumber num2) intptr
+  | tokenType (token node) == andOperation definedTypes = setResult (andNumber num1 num2) intptr
+  | tokenType (token node) == orOperation definedTypes = setResult (orNumber num1 num2) intptr
+  | tokenType (token node) == equalOperation definedTypes = setResult (eqNumber num1 num2) intptr
+  | tokenType (token node) == notEqualOperation definedTypes = setResult (neqNumber num1 num2) intptr
+  | tokenType (token node) == greaterOperation definedTypes = setResult (greaterNumber num1 num2) intptr
+  | tokenType (token node) == lessOperation definedTypes = setResult (lessNumber num1 num2) intptr
+  | tokenType (token node) == greaterEqOperation definedTypes = setResult (greaterEqNumber num1 num2) intptr
+  | tokenType (token node) == lessEqOperation definedTypes = setResult (lessEqNumber num1 num2) intptr
   where 
     num1 = fromJust(currentResult (visit (fromJust(leftNode node)) intptr))
     num2 = fromJust(currentResult (visit (fromJust(rightNode node)) intptr))
@@ -183,6 +300,7 @@ visitBinaryOpNode node intptr
 visitUnaryNode :: Node -> Interpreter -> Interpreter
 visitUnaryNode node intptr
   | tokenType (token node) == minusOperation definedTypes = setResult (mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing}) intptr
+  | tokenType (token node) == notOperation definedTypes = setResult (notNumber num1) intptr
   | otherwise = setResult num1 intptr
   where 
     num1 = fromJust(currentResult(visit (fromJust(leftNode node)) intptr))
