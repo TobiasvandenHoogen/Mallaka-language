@@ -19,7 +19,8 @@ cabal-version:       >=1.10
 executable Mallaka-language
   main-is:             Main.hs
   -- other-modules:       
-  -- other-extensions:    
+  -- other-extensions:    '
+  ghc-options:   -w 
   build-depends:       base >=4.9 && <4.10
                         , containers
   -- hs-source-dirs:  

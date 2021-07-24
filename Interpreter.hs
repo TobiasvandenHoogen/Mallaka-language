@@ -3,6 +3,7 @@ import Data.Maybe
 import Data.Fixed
 import Data.Map
 import Data.Bits 
+import Data.Typeable 
 import Prelude hiding (lookup)
 import Parser
 import Exception 
@@ -49,6 +50,10 @@ removeEnvironmentValue env key =
   
 getVariableName :: Value -> String 
 getVariableName (String a ) = a 
+
+getBoolValue :: Value -> Interpreter -> Node -> Bool
+getBoolValue (Bool a) i n = a
+getBoolValue a i n = throwError(ConditionError(intprFileName i) (pos (token n)))
 
 addValue :: Value -> Value -> Value
 addValue (Int a) (Int b) = Int( a + b)
@@ -247,6 +252,7 @@ visit node intptr
   | nodeType node == "AssignNode" = visitVarAssignNode node intptr
   | nodeType node == "BinaryOpNode" = visitBinaryOpNode node intptr
   | nodeType node == "UnaryNode" = visitUnaryNode node intptr
+  | nodeType node == "IfTreeNode" = visitIfNode node intptr
   | otherwise = error "Internal error in interpreter"
 
 visitNumberNode :: Node -> Interpreter -> Interpreter
@@ -304,3 +310,23 @@ visitUnaryNode node intptr
   | otherwise = setResult num1 intptr
   where 
     num1 = fromJust(currentResult(visit (fromJust(leftNode node)) intptr))
+
+visitIfNode :: Node -> Interpreter -> Interpreter
+visitIfNode node intptr
+    | tokenType (token node) == ifOperation definedTypes ||
+      tokenType (token node) == elseIfOperation definedTypes = 
+        if conditionResult
+        then setResult ifResult intptr
+        else goToNextCondition
+    | otherwise = intptr
+    where 
+      conditionBranch =  visit (fromMaybe Node{} (leftNode( fromMaybe Node{} (leftNode node)))) intptr
+      conditionResult = getBoolValue (numberValue(fromMaybe Number{} (currentResult conditionBranch))) intptr (fromJust(leftNode (fromJust(leftNode node))))
+      ifStatement = visit (fromMaybe Node{} (rightNode( fromMaybe Node{} (leftNode node)))) intptr
+      ifResult = fromJust(currentResult ifStatement)
+      goToNextCondition = 
+        if isNothing(rightNode node)
+        then intptr
+        else visitIfNode (fromMaybe Node{} (rightNode node)) intptr
+      
+

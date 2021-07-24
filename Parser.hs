@@ -33,10 +33,38 @@ advanceParser parser =
                         file = file parser}
     in result 
 
+statementExpression :: Parser -> Parser 
+statementExpression parser 
+  | tokenType (currentToken parser) == openStatement definedTypes =  
+    case tokenType (currentToken statement) of 
+      "<-" -> advanceParser statement
+      _ ->  throwError(InvalidSyntaxError (file parser) (closeStatement definedTypes) ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
+  | otherwise = throwError(InvalidSyntaxError (file parser) (openStatement definedTypes) ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
+  where 
+    statement = expression (advanceParser parser) Nothing 
+  
+
+ifExpression :: Parser -> Parser 
+ifExpression parser 
+  | tokenType (currentToken parser) == ifOperation definedTypes ||
+    tokenType (currentToken parser) == elseIfOperation definedTypes  = otherStatements {currentNode = Just ifTree}
+  | tokenType (currentToken parser) == elseOperation definedTypes = elseStatement {currentNode = Just elseNode}
+  | otherwise = parser {currentNode = Nothing}
+  where 
+    condition = exponential (advanceParser parser) Nothing
+    statement = statementExpression condition
+    otherStatements = ifExpression statement
+    elseStatement = statementExpression (advanceParser parser)
+    ifTree = Node{leftNode = Just ifNode, token = currentToken parser, rightNode = currentNode otherStatements, nodeType = "IfTreeNode"}
+    ifNode = Node{leftNode = currentNode condition, token = currentToken parser, rightNode =  currentNode statement, nodeType = "IfOpNode"}
+    elseNode = Node{leftNode = Nothing, token = currentToken parser, rightNode =  currentNode elseStatement, nodeType = "ElseOpNode"}
+
+
 atom :: Parser -> Parser  
 atom parser 
   | (tokenType (currentToken parser) == intType definedTypes) || 
     (tokenType (currentToken parser) == floatType definedTypes) ||
+    (tokenType (currentToken parser) == nullType definedTypes) ||
     (tokenType (currentToken parser) == trueBool definedTypes) ||
     (tokenType (currentToken parser) == falseBool definedTypes) = 
       advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
@@ -46,8 +74,10 @@ atom parser
     if tokenType (currentToken expressionParser) == rightParent definedTypes
     then advanceParser expressionParser 
     else throwError(InvalidSyntaxError (file parser) ")" ("\"" ++ tokenType (currentToken expressionParser) ++ "\"") (pos (currentToken expressionParser)))
+  | tokenType (currentToken parser) == ifOperation definedTypes = 
+    ifExpression parser 
   | otherwise = 
-    throwError(InvalidSyntaxError (file parser) "integer/float" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
+    throwError(InvalidSyntaxError (file parser) "value type" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   where 
     expressionParser = expression (advanceParser parser) Nothing 
 

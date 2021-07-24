@@ -52,7 +52,10 @@ createTokens lexer =
               | isAlpha (currentChar lexer) = makeWord lexer 
               | currentChar lexer == ' ' = advanceLexer lexer 
               | currentChar lexer == '+' = addToken (advanceLexer lexer) Token {tokenType = plusOperation definedTypes, val = Nothing, pos = currentPosition lexer}
-              | currentChar lexer == '-' = addToken (advanceLexer lexer) Token {tokenType = minusOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '-' = 
+                case currentChar checkNextChar of 
+                  '>' ->  addToken (advanceLexer checkNextChar) Token {tokenType = openStatement definedTypes, val = Nothing, pos = currentPosition lexer }
+                  _  ->   addToken (advanceLexer lexer) Token {tokenType = minusOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '*' = addToken (advanceLexer lexer) Token {tokenType = multiplyOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '/' = addToken (advanceLexer lexer) Token {tokenType = divisionOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '%' = addToken (advanceLexer lexer) Token {tokenType = modOperation definedTypes, val = Nothing, pos = currentPosition lexer }
@@ -70,13 +73,14 @@ createTokens lexer =
                 then addToken (advanceLexer checkNextChar) Token {tokenType = notEqualOperation definedTypes, val = Nothing, pos = currentPosition lexer }
                 else addToken (advanceLexer lexer) Token {tokenType = notOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '<' =
-                if currentChar checkNextChar == '=' 
-                then addToken (advanceLexer checkNextChar) Token {tokenType = lessEqOperation definedTypes, val = Nothing, pos = currentPosition lexer }
-                else addToken (advanceLexer lexer) Token {tokenType = lessOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                case currentChar checkNextChar of 
+                  '=' ->  addToken (advanceLexer checkNextChar) Token {tokenType = lessEqOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                  '-' -> addToken (advanceLexer checkNextChar) Token {tokenType = closeStatement definedTypes, val = Nothing, pos = currentPosition lexer }
+                  _  -> addToken (advanceLexer lexer) Token {tokenType = lessOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '>' =
-                if currentChar checkNextChar == '=' 
-                then addToken (advanceLexer checkNextChar) Token {tokenType = greaterEqOperation definedTypes, val = Nothing, pos = currentPosition lexer }
-                else addToken (advanceLexer lexer) Token {tokenType = greaterOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                case currentChar checkNextChar of 
+                  '=' ->  addToken (advanceLexer checkNextChar) Token {tokenType = greaterEqOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+                  _  -> addToken (advanceLexer lexer) Token {tokenType = greaterOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | otherwise = throwError(InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))
             checkNextChar = advanceLexer lexer 
 
@@ -97,8 +101,13 @@ makeWord lexer =
 getKeyWord :: String -> Position -> Token 
 getKeyWord keyword pos
   | keyword == sqrootOperation definedTypes = Token{tokenType = sqrootOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == ifOperation definedTypes = Token{tokenType = ifOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == elseIfOperation definedTypes = Token{tokenType = elseIfOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == elseOperation definedTypes = Token{tokenType = elseOperation definedTypes, val = Nothing, pos = pos}
   | keyword == trueBool definedTypes = Token{tokenType = trueBool definedTypes, val = Just(Bool(True)), pos = pos}
   | keyword == falseBool definedTypes = Token{tokenType = falseBool definedTypes, val = Just(Bool(False)), pos = pos}
+  | keyword == falseBool definedTypes = Token{tokenType = falseBool definedTypes, val = Just(Bool(False)), pos = pos}
+  | keyword == nullType definedTypes = Token{tokenType = nullType definedTypes, val = Nothing, pos = pos}
   | otherwise = Token{tokenType = identifier definedTypes, val = Just(String(keyword)), pos = pos}
 
 

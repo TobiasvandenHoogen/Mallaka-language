@@ -5,7 +5,8 @@ import Types
 data Error = InvalidCharError String String Position |
              InvalidSyntaxError String String String Position |
              DivisionByZeroError String Position |
-             NotDefinedError String String Position 
+             NotDefinedError String String Position |
+             ConditionError String Position
 
 throwError :: Error -> a
 
@@ -20,3 +21,6 @@ throwError (DivisionByZeroError fn pos) = error (
 
 throwError (NotDefinedError fn var pos) = error ( 
   "\n" ++ fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: " ++ var ++ " is not defined.")
+
+throwError (ConditionError fn pos) = error (
+ "\n" ++ fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: expected boolean condition.")
