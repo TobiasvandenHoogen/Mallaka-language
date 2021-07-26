@@ -108,6 +108,11 @@ getKeyWord keyword pos
   | keyword == falseBool definedTypes = Token{tokenType = falseBool definedTypes, val = Just(Bool(False)), pos = pos}
   | keyword == falseBool definedTypes = Token{tokenType = falseBool definedTypes, val = Just(Bool(False)), pos = pos}
   | keyword == nullType definedTypes = Token{tokenType = nullType definedTypes, val = Nothing, pos = pos}
+  | keyword == loopOperation definedTypes = Token{tokenType = loopOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == fromLoopOperation definedTypes = Token{tokenType = fromLoopOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == toLoopOperation definedTypes = Token{tokenType = toLoopOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == withLoopOperation definedTypes = Token{tokenType = withLoopOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == untilOperation definedTypes = Token{tokenType = untilOperation definedTypes, val = Nothing, pos = pos}
   | otherwise = Token{tokenType = identifier definedTypes, val = Just(String(keyword)), pos = pos}
 
 

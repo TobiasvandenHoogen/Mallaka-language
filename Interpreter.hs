@@ -26,7 +26,7 @@ data Number = Number{
   numberValue :: Value,
   numPos :: Maybe Position
 }
-  deriving Show 
+  deriving (Show, Eq)
 
 getEnvironmentValue :: Environment -> String -> Maybe Value
 getEnvironmentValue env name = 
@@ -253,7 +253,9 @@ visit node intptr
   | nodeType node == "BinaryOpNode" = visitBinaryOpNode node intptr
   | nodeType node == "UnaryNode" = visitUnaryNode node intptr
   | nodeType node == "IfTreeNode" = visitIfNode node intptr
-  | otherwise = error "Internal error in interpreter"
+  | nodeType node == "LoopNode" = visitLoopNode node intptr
+  | nodeType node == "UntilNode" = visitUntilNode node intptr
+  | otherwise = error (nodeType node) 
 
 visitNumberNode :: Node -> Interpreter -> Interpreter
 visitNumberNode node inter =
@@ -328,5 +330,33 @@ visitIfNode node intptr
         if isNothing(rightNode node)
         then intptr
         else visitIfNode (fromMaybe Node{} (rightNode node)) intptr
+
+visitLoopNode :: Node -> Interpreter -> Interpreter
+visitLoopNode node intptr = 
+  runLoopNode fromValue toValue withValue statementNode intptr
+  where 
+    fromValue = fromJust(currentResult (visit (fromMaybe Node {} (leftNode (fromMaybe Node{} (leftNode( fromMaybe Node{} (leftNode node)))))) intptr ) )
+    toValue = fromJust(currentResult (visit (fromMaybe Node{} (leftNode (fromMaybe Node{} (rightNode( fromMaybe Node{} (leftNode node)))))) intptr ) )
+    withValue = fromJust(currentResult (visit (fromMaybe Node{} (leftNode (fromMaybe Node{} (leftNode( fromMaybe Node{} (rightNode node)))))) intptr ) )
+    statementNode = fromMaybe Node{} (rightNode( fromMaybe Node{} (rightNode node)))
+
+
+
+runLoopNode :: Number -> Number -> Number -> Node -> Interpreter -> Interpreter
+runLoopNode fromValue toValue withValue statementNode intptr 
+  | numberValue fromValue == numberValue toValue  = intptr
+  | otherwise = runLoopNode newIndex toValue withValue statementNode nextIteration
+  where 
+    newIndex = Number{numberValue = addValue (numberValue fromValue) (numberValue withValue), numPos = Nothing}
+    nextIteration = visit statementNode intptr
+
+
+visitUntilNode :: Node -> Interpreter -> Interpreter
+visitUntilNode node intptr 
+  | getBoolValue (numberValue conditionResult) intptr (fromMaybe Node {} (leftNode node)) = intptr
+  | otherwise = visitUntilNode node nextIteration
+  where 
+    conditionResult = fromJust(currentResult (visit (fromMaybe Node{} (leftNode node)) intptr))
+    nextIteration = visit (fromMaybe Node{} (rightNode node)) intptr
       
 

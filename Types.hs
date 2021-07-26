@@ -37,6 +37,11 @@ data Types = Types{intType :: String,
         ifOperation :: String,
         elseIfOperation :: String,
         elseOperation :: String,
+        loopOperation :: String,
+        fromLoopOperation :: String,
+        toLoopOperation :: String,
+        withLoopOperation :: String,
+        untilOperation :: String,
         openStatement :: String,
         closeStatement :: String,
         endOfFile :: String}
@@ -44,7 +49,7 @@ data Types = Types{intType :: String,
 data Position = Position {index :: Int,
   line :: Int,
   column :: Int}
-  deriving Show 
+  deriving (Show, Eq) 
 
 data Token = Token{ tokenType :: String,
         val :: Maybe Value,
@@ -80,6 +85,11 @@ definedTypes = Types{intType = "integer",
                  ifOperation = "whatif",
                  elseIfOperation = "orwhatif",
                  elseOperation = "orelse",
+                 loopOperation = "loop",
+                 fromLoopOperation = "from",
+                 toLoopOperation = "to",
+                 withLoopOperation = "with",
+                 untilOperation = "until",
                  openStatement = "->",
                  closeStatement = "<-",
                  endOfFile = "EOF"}

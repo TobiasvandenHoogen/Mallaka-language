@@ -51,7 +51,7 @@ ifExpression parser
   | tokenType (currentToken parser) == elseOperation definedTypes = elseStatement {currentNode = Just elseNode}
   | otherwise = parser {currentNode = Nothing}
   where 
-    condition = exponential (advanceParser parser) Nothing
+    condition = expression (advanceParser parser) Nothing
     statement = statementExpression condition
     otherStatements = ifExpression statement
     elseStatement = statementExpression (advanceParser parser)
@@ -59,6 +59,32 @@ ifExpression parser
     ifNode = Node{leftNode = currentNode condition, token = currentToken parser, rightNode =  currentNode statement, nodeType = "IfOpNode"}
     elseNode = Node{leftNode = Nothing, token = currentToken parser, rightNode =  currentNode elseStatement, nodeType = "ElseOpNode"}
 
+loopExpression :: Parser -> Parser 
+loopExpression parser 
+  | tokenType (currentToken parser) == loopOperation definedTypes = statementBranch{currentNode = Just(loopBranch)}
+  | tokenType (currentToken parser) == fromLoopOperation definedTypes ||
+    tokenType (currentToken parser) == toLoopOperation definedTypes ||
+    tokenType (currentToken parser) == withLoopOperation definedTypes =   loopAttribute { currentNode = Just Node{leftNode = currentNode loopAttribute, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
+  | otherwise = throwError(InvalidSyntaxError (file parser) "loop keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  where 
+    loopBranch = Node{
+                  leftNode = Just(Node{leftNode = currentNode fromBranch, token = currentToken parser, rightNode = currentNode toBranch, nodeType = "NumberNode"}),
+                  token = currentToken parser,
+                  rightNode = Just(Node{leftNode = currentNode withBranch, token = currentToken parser, rightNode = currentNode statementBranch, nodeType = "NumberNode"}),
+                  nodeType = "LoopNode"}
+    loopAttribute = expression (advanceParser parser) Nothing
+    fromBranch = loopExpression(advanceParser parser)
+    toBranch = loopExpression fromBranch
+    withBranch = loopExpression toBranch
+    statementBranch = statementExpression withBranch
+
+untilExpression :: Parser -> Parser 
+untilExpression parser = statementBranch{currentNode = Just untilBranch} 
+  where 
+    untilBranch = Node{leftNode = currentNode conditionBranch, token = currentToken parser, rightNode = currentNode statementBranch, nodeType = "UntilNode"}
+    conditionBranch = expression (advanceParser parser) Nothing
+    statementBranch = statementExpression conditionBranch
+                      
 
 atom :: Parser -> Parser  
 atom parser 
@@ -76,8 +102,12 @@ atom parser
     else throwError(InvalidSyntaxError (file parser) ")" ("\"" ++ tokenType (currentToken expressionParser) ++ "\"") (pos (currentToken expressionParser)))
   | tokenType (currentToken parser) == ifOperation definedTypes = 
     ifExpression parser 
+  | tokenType (currentToken parser) == loopOperation definedTypes = 
+    loopExpression parser
+  | tokenType (currentToken parser) == untilOperation definedTypes = 
+    untilExpression parser
   | otherwise = 
-    throwError(InvalidSyntaxError (file parser) "value type" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
+    throwError(InvalidSyntaxError (file parser) "value" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   where 
     expressionParser = expression (advanceParser parser) Nothing 
 

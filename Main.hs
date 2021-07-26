@@ -39,8 +39,8 @@ runInterpreter inter = do
   input <- getLine
 
   let result = runResult inter input
-  let printRes = fromJust(currentResult result)
-  print( numberValue printRes )
+  let printRes = if isNothing(currentResult result) then nullType definedTypes else show (numberValue (fromJust(currentResult result)))
+  print( printRes )
   runInterpreter result
 
 main :: IO ()
