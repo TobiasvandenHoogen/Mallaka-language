@@ -66,6 +66,8 @@ createTokens lexer =
                 else addToken (advanceLexer lexer) Token {tokenType = assignOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '(' = addToken (advanceLexer lexer) Token {tokenType = leftParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == ')' = addToken (advanceLexer lexer) Token {tokenType = rightParent definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '{' = addToken (advanceLexer lexer) Token {tokenType = openParameter definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '}' = addToken (advanceLexer lexer) Token {tokenType = closeParameter definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '&' = addToken (advanceLexer lexer) Token {tokenType = andOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '|' = addToken (advanceLexer lexer) Token {tokenType = orOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '!' = 
@@ -113,6 +115,8 @@ getKeyWord keyword pos
   | keyword == toLoopOperation definedTypes = Token{tokenType = toLoopOperation definedTypes, val = Nothing, pos = pos}
   | keyword == withLoopOperation definedTypes = Token{tokenType = withLoopOperation definedTypes, val = Nothing, pos = pos}
   | keyword == untilOperation definedTypes = Token{tokenType = untilOperation definedTypes, val = Nothing, pos = pos}
+  | keyword == function definedTypes = Token{tokenType = function definedTypes, val = Nothing, pos = pos}
+  | keyword == returnFunction definedTypes = Token{tokenType = returnFunction definedTypes, val = Nothing, pos = pos}
   | otherwise = Token{tokenType = identifier definedTypes, val = Just(String(keyword)), pos = pos}
 
 

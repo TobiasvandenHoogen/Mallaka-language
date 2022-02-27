@@ -20,7 +20,7 @@ executable Mallaka-language
   main-is:             Main.hs
   -- other-modules:       
   -- other-extensions:    '
-  ghc-options:   -w 
+  ghc-options:   -w
   build-depends:       base >=4.9 && <4.10
                         , containers
   -- hs-source-dirs:  

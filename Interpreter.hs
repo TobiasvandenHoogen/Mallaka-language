@@ -1,11 +1,12 @@
 module Interpreter where 
+import System.IO
 import Data.Maybe
 import Data.Fixed
-import Data.Map
+import Data.Map hiding (null)
 import Data.Bits 
-import Data.Typeable 
 import Prelude hiding (lookup)
 import Parser
+import Lexer
 import Exception 
 import Types
 
@@ -53,7 +54,7 @@ getVariableName (String a ) = a
 
 getBoolValue :: Value -> Interpreter -> Node -> Bool
 getBoolValue (Bool a) i n = a
-getBoolValue a i n = throwError(ConditionError(intprFileName i) (pos (token n)))
+getBoolValue a i n = throwError(ConditionError(intprFileName i) (pos (getToken n)))
 
 addValue :: Value -> Value -> Value
 addValue (Int a) (Int b) = Int( a + b)
@@ -247,99 +248,109 @@ setResult num inter =
 
 visit :: Node -> Interpreter -> Interpreter
 visit node intptr
-  | nodeType node == "NumberNode" = visitNumberNode node intptr
-  | nodeType node == "VarAccessNode" = visitVarAccessNode node intptr
-  | nodeType node == "AssignNode" = visitVarAssignNode node intptr
-  | nodeType node == "BinaryOpNode" = visitBinaryOpNode node intptr
-  | nodeType node == "UnaryNode" = visitUnaryNode node intptr
-  | nodeType node == "IfTreeNode" = visitIfNode node intptr
-  | nodeType node == "LoopNode" = visitLoopNode node intptr
-  | nodeType node == "UntilNode" = visitUntilNode node intptr
-  | otherwise = error (nodeType node) 
+  | typ == NumberNode = visitNumberNode node intptr
+  | typ == VarAccessNode = visitVarAccessNode node intptr
+  | typ == VarAssignNode = visitVarAssignNode node intptr
+  | typ == BinaryOpNode = visitBinaryOpNode node intptr
+  | typ == UnaryNode = visitUnaryNode node intptr
+  | typ == IfNode = visitIfNode node intptr
+  | typ == LoopNode = visitLoopNode node intptr
+  | typ == UntilNode = visitUntilNode node intptr
+  -- | typ == CreateFunctionNode = visitCreateFunctionNode node intptr
+  | otherwise = error (show node)
+  where 
+    typ = getNodeType node
 
 visitNumberNode :: Node -> Interpreter -> Interpreter
-visitNumberNode node inter =
-  setResult (Number{numberValue = fromJust(val (token node)), numPos = Just (pos (token node))}) inter
+visitNumberNode node =
+  setResult (Number{numberValue = fromJust(val tok), numPos = Just (pos tok)}) 
+  where
+    tok = getToken node
 
 visitVarAccessNode :: Node -> Interpreter -> Interpreter
 visitVarAccessNode node intptr = 
   if isJust(value)
-  then setResult Number{numberValue = fromJust(value), numPos = Just (pos (token node))} intptr
-  else throwError(NotDefinedError (intprFileName intptr) ( "\"" ++ getVariableName(fromJust(val (token node))) ++ "\"") (pos (token node)))
+  then setResult Number{numberValue = fromJust(value), numPos = Just (pos tok)} intptr
+  else throwError(NotDefinedError (intprFileName intptr) ( "\"" ++ getVariableName(fromJust(val tok)) ++ "\"") (pos tok))
   where 
-    value = getEnvironmentValue (intEnv intptr) (getVariableName(fromJust(val (token node))))
+    tok = getToken node
+    value = getEnvironmentValue (intEnv intptr) (getVariableName(fromJust(val tok)))
 
 visitVarAssignNode :: Node -> Interpreter -> Interpreter
-visitVarAssignNode node intptr = 
+visitVarAssignNode node@(Tree left tok _ right) intptr = 
   newEnv
   where
-    variableNode = fromJust(leftNode node)
-    valueNode = fromJust(currentResult (visit (fromJust(rightNode node)) intptr))
-    varName = getVariableName(fromJust(val (token variableNode)))
+    valueNode = fromJust(currentResult (visit right intptr))
+    varName = getVariableName(fromJust(val (getToken left)))
     value = setResult valueNode intptr
     valueResult = fromJust(currentResult value)
     newEnv = value {intEnv = setEnvironmentValue (intEnv value) varName (numberValue valueResult)}
 
 visitBinaryOpNode :: Node -> Interpreter -> Interpreter
-visitBinaryOpNode node intptr
-  | tokenType (token node) == plusOperation definedTypes = setResult (addNumber num1 num2) intptr
-  | tokenType (token node) == minusOperation definedTypes = setResult (subNumber num1 num2) intptr
-  | tokenType (token node) == multiplyOperation definedTypes = setResult (mulNumber num1 num2) intptr
-  | tokenType (token node) == divisionOperation definedTypes = setResult (divNumber num1 numCheck) intptr
-  | tokenType (token node) == modOperation definedTypes = setResult (modNumber num1 num2) intptr
-  | tokenType (token node) == powerOperation definedTypes = setResult (powNumber num1 num2) intptr
-  | tokenType (token node) == sqrootOperation definedTypes = setResult (sqrootNumber num2) intptr
-  | tokenType (token node) == andOperation definedTypes = setResult (andNumber num1 num2) intptr
-  | tokenType (token node) == orOperation definedTypes = setResult (orNumber num1 num2) intptr
-  | tokenType (token node) == equalOperation definedTypes = setResult (eqNumber num1 num2) intptr
-  | tokenType (token node) == notEqualOperation definedTypes = setResult (neqNumber num1 num2) intptr
-  | tokenType (token node) == greaterOperation definedTypes = setResult (greaterNumber num1 num2) intptr
-  | tokenType (token node) == lessOperation definedTypes = setResult (lessNumber num1 num2) intptr
-  | tokenType (token node) == greaterEqOperation definedTypes = setResult (greaterEqNumber num1 num2) intptr
-  | tokenType (token node) == lessEqOperation definedTypes = setResult (lessEqNumber num1 num2) intptr
+visitBinaryOpNode node@(Tree left tok _ right) intptr
+  | tokenType tok == plusOperation definedTypes = setResult (addNumber num1 num2) intptr
+  | tokenType tok == minusOperation definedTypes = setResult (subNumber num1 num2) intptr
+  | tokenType tok == multiplyOperation definedTypes = setResult (mulNumber num1 num2) intptr
+  | tokenType tok == divisionOperation definedTypes = setResult (divNumber num1 numCheck) intptr
+  | tokenType tok == modOperation definedTypes = setResult (modNumber num1 num2) intptr
+  | tokenType tok == powerOperation definedTypes = setResult (powNumber num1 num2) intptr
+  | tokenType tok == sqrootOperation definedTypes = setResult (sqrootNumber num2) intptr
+  | tokenType tok == andOperation definedTypes = setResult (andNumber num1 num2) intptr
+  | tokenType tok == orOperation definedTypes = setResult (orNumber num1 num2) intptr
+  | tokenType tok == equalOperation definedTypes = setResult (eqNumber num1 num2) intptr
+  | tokenType tok == notEqualOperation definedTypes = setResult (neqNumber num1 num2) intptr
+  | tokenType tok == greaterOperation definedTypes = setResult (greaterNumber num1 num2) intptr
+  | tokenType tok == lessOperation definedTypes = setResult (lessNumber num1 num2) intptr
+  | tokenType tok == greaterEqOperation definedTypes = setResult (greaterEqNumber num1 num2) intptr
+  | tokenType tok == lessEqOperation definedTypes = setResult (lessEqNumber num1 num2) intptr
   where 
-    num1 = fromJust(currentResult (visit (fromJust(leftNode node)) intptr))
-    num2 = fromJust(currentResult (visit (fromJust(rightNode node)) intptr))
+    num1 = fromJust(currentResult (visit left intptr))
+    num2 = fromJust(currentResult (visit right intptr))
     numCheck = 
       if isZero (numberValue num2)
-      then throwError(DivisionByZeroError (intprFileName intptr)  (pos(token node)))
+      then throwError(DivisionByZeroError (intprFileName intptr)  (pos tok))
       else num2
 
 visitUnaryNode :: Node -> Interpreter -> Interpreter
-visitUnaryNode node intptr
-  | tokenType (token node) == minusOperation definedTypes = setResult (mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing}) intptr
-  | tokenType (token node) == notOperation definedTypes = setResult (notNumber num1) intptr
+visitUnaryNode node@(Branch _ _ right) intptr
+  | tokenType tok == minusOperation definedTypes = setResult (mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing}) intptr
+  | tokenType tok == notOperation definedTypes = setResult (notNumber num1) intptr
   | otherwise = setResult num1 intptr
   where 
-    num1 = fromJust(currentResult(visit (fromJust(leftNode node)) intptr))
+    num1 = fromJust(currentResult(visit right intptr))
+    tok = getToken node
 
 visitIfNode :: Node -> Interpreter -> Interpreter
-visitIfNode node intptr
-    | tokenType (token node) == ifOperation definedTypes ||
-      tokenType (token node) == elseIfOperation definedTypes = 
+visitIfNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok _ right) intptr
+    | tokenType tok == ifOperation definedTypes ||
+      tokenType tok == elseIfOperation definedTypes = 
         if conditionResult
         then setResult ifResult intptr
         else goToNextCondition
+    | tokenType tok == elseOperation definedTypes =
+      setResult elseResult intptr 
     | otherwise = intptr
     where 
-      conditionBranch =  visit (fromMaybe Node{} (leftNode( fromMaybe Node{} (leftNode node)))) intptr
-      conditionResult = getBoolValue (numberValue(fromMaybe Number{} (currentResult conditionBranch))) intptr (fromJust(leftNode (fromJust(leftNode node))))
-      ifStatement = visit (fromMaybe Node{} (rightNode( fromMaybe Node{} (leftNode node)))) intptr
+      conditionBranch = visit leftLeft intptr
+      conditionResult = getBoolValue (numberValue(fromMaybe Number{} (currentResult conditionBranch))) intptr leftLeft
+      ifStatement = visit leftRight intptr
       ifResult = fromJust(currentResult ifStatement)
+      elseStatement = visit left intptr 
+      elseResult = fromJust(currentResult ifStatement)
       goToNextCondition = 
-        if isNothing(rightNode node)
+        if right == Empty
         then intptr
-        else visitIfNode (fromMaybe Node{} (rightNode node)) intptr
+        else visitIfNode right intptr
 
 visitLoopNode :: Node -> Interpreter -> Interpreter
-visitLoopNode node intptr = 
+visitLoopNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok typ right@(Tree rightLeft _ _ rightRight)) intptr = 
   runLoopNode fromValue toValue withValue statementNode intptr
   where 
-    fromValue = fromJust(currentResult (visit (fromMaybe Node {} (leftNode (fromMaybe Node{} (leftNode( fromMaybe Node{} (leftNode node)))))) intptr ) )
-    toValue = fromJust(currentResult (visit (fromMaybe Node{} (leftNode (fromMaybe Node{} (rightNode( fromMaybe Node{} (leftNode node)))))) intptr ) )
-    withValue = fromJust(currentResult (visit (fromMaybe Node{} (leftNode (fromMaybe Node{} (leftNode( fromMaybe Node{} (rightNode node)))))) intptr ) )
-    statementNode = fromMaybe Node{} (rightNode( fromMaybe Node{} (rightNode node)))
-
+    fromValue = fromJust(currentResult (visit leftLeft intptr ) )
+    toValue = fromJust(currentResult (visit leftRight intptr ) )
+    withValue = fromJust(currentResult (visit rightLeft intptr ) )
+    statementNode = rightRight
+visitLoopNode node@(Branch _ _ right) intptr = visit right intptr
 
 
 runLoopNode :: Number -> Number -> Number -> Node -> Interpreter -> Interpreter
@@ -352,11 +363,64 @@ runLoopNode fromValue toValue withValue statementNode intptr
 
 
 visitUntilNode :: Node -> Interpreter -> Interpreter
-visitUntilNode node intptr 
-  | getBoolValue (numberValue conditionResult) intptr (fromMaybe Node {} (leftNode node)) = intptr
+visitUntilNode node@(Tree left _ _ right) intptr 
+  | getBoolValue (numberValue conditionResult) intptr left = intptr
   | otherwise = visitUntilNode node nextIteration
   where 
-    conditionResult = fromJust(currentResult (visit (fromMaybe Node{} (leftNode node)) intptr))
-    nextIteration = visit (fromMaybe Node{} (rightNode node)) intptr
+    conditionResult = fromJust(currentResult (visit left intptr))
+    nextIteration = visit right intptr
+
+visitCreateFunctionNode :: Node -> Interpreter -> Interpreter
+visitCreateFunctionNode node@(Tree l1 _ _ (Tree r1 _ _ r2)) intptr = newIntptr
+ where 
+   funcName = visit 
+
+
+-- visitCreateParameterNode :: Node -> [Value]
+-- visitCreateParameterNode isJust = fromJust[val (currentToken nod)] ++ visitCreateParameterNode(leftNode node)
+-- visitCreateParameterNode Nothing = []
+
+-- visitFunctionNode :: Node -> Interpreter -> Interpreter
+-- visitFunctionNode node intptr = 
+
+runResult :: Interpreter -> String -> Interpreter
+runResult inter input 
+  | null input = inter
+  | otherwise = newInter
+  where 
+    lexer = Lexer {
+      fileName = "Shell",
+      inputText = input , 
+      currentLine = 0, 
+      currentPosition = Position{
+                          index = 1,
+                          column = 1,
+                          line = 0}, 
+      currentChar = head input, 
+      tokenList = []}
+    tokenLexer = createTokens lexer 
+    parser = Parser {
+      tokens = tokenList tokenLexer,
+      tokenIndex = 1,
+      currentToken = head (tokenList tokenLexer),
+      currentNode = Empty,
+      file = fileName tokenLexer}
+    nodeTree = parse parser 
+    newInter = visit (currentNode nodeTree) inter
+
+runInterpreter :: Interpreter -> IO ()
+runInterpreter inter = do 
+  hSetBuffering stdout NoBuffering
+  putStr ">> " 
+  input <- getLine
+
+  let result = runResult inter input
+  printResult (currentResult result)
+  runInterpreter result{currentResult = Nothing}
+
+printResult :: Maybe Number -> IO ()
+printResult a 
+  | isJust a = putStrLn( show (numberValue (fromJust a)))
+  | otherwise = putStr("")
       
 

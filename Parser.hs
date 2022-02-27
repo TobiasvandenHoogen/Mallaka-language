@@ -5,18 +5,11 @@ import Types
 
 ----------Parser
 
-data Node = Node{
-  leftNode :: Maybe Node,
-  token :: Token,
-  rightNode :: Maybe Node,
-  nodeType :: String}
-  deriving Show  
-
 data Parser = Parser{
   tokens :: [Token],
   tokenIndex :: Int,
   currentToken :: Token,
-  currentNode :: Maybe Node,
+  currentNode :: Node,
   file :: String }
   deriving Show 
 
@@ -41,51 +34,84 @@ statementExpression parser
       _ ->  throwError(InvalidSyntaxError (file parser) (closeStatement definedTypes) ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   | otherwise = throwError(InvalidSyntaxError (file parser) (openStatement definedTypes) ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   where 
-    statement = expression (advanceParser parser) Nothing 
+    statement = expression (advanceParser parser) Empty
   
 
 ifExpression :: Parser -> Parser 
 ifExpression parser 
   | tokenType (currentToken parser) == ifOperation definedTypes ||
-    tokenType (currentToken parser) == elseIfOperation definedTypes  = otherStatements {currentNode = Just ifTree}
-  | tokenType (currentToken parser) == elseOperation definedTypes = elseStatement {currentNode = Just elseNode}
-  | otherwise = parser {currentNode = Nothing}
+    tokenType (currentToken parser) == elseIfOperation definedTypes  = otherStatements {currentNode = ifTree}
+  | tokenType (currentToken parser) == elseOperation definedTypes = elseStatement {currentNode = elseNode}
+  | otherwise = parser {currentNode = Empty}
   where 
-    condition = expression (advanceParser parser) Nothing
+    condition = expression (advanceParser parser) Empty
     statement = statementExpression condition
     otherStatements = ifExpression statement
     elseStatement = statementExpression (advanceParser parser)
-    ifTree = Node{leftNode = Just ifNode, token = currentToken parser, rightNode = currentNode otherStatements, nodeType = "IfTreeNode"}
-    ifNode = Node{leftNode = currentNode condition, token = currentToken parser, rightNode =  currentNode statement, nodeType = "IfOpNode"}
-    elseNode = Node{leftNode = Nothing, token = currentToken parser, rightNode =  currentNode elseStatement, nodeType = "ElseOpNode"}
+    ifTree = Tree ifNode (currentToken parser) IfNode (currentNode otherStatements)
+    ifNode = Tree (currentNode condition) (currentToken parser) NoType (currentNode statement)
+    elseNode = Tree (currentNode elseStatement) (currentToken parser) NoType Empty
 
 loopExpression :: Parser -> Parser 
 loopExpression parser 
-  | tokenType (currentToken parser) == loopOperation definedTypes = statementBranch{currentNode = Just(loopBranch)}
+  | tokenType (currentToken parser) == loopOperation definedTypes = statementBranch{currentNode = loopBranch}
   | tokenType (currentToken parser) == fromLoopOperation definedTypes ||
     tokenType (currentToken parser) == toLoopOperation definedTypes ||
-    tokenType (currentToken parser) == withLoopOperation definedTypes =   loopAttribute { currentNode = Just Node{leftNode = currentNode loopAttribute, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
+    tokenType (currentToken parser) == withLoopOperation definedTypes = 
+      loopAttribute { currentNode = Branch (currentToken parser) LoopNode (currentNode loopAttribute)}
   | otherwise = throwError(InvalidSyntaxError (file parser) "loop keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
   where 
-    loopBranch = Node{
-                  leftNode = Just(Node{leftNode = currentNode fromBranch, token = currentToken parser, rightNode = currentNode toBranch, nodeType = "NumberNode"}),
-                  token = currentToken parser,
-                  rightNode = Just(Node{leftNode = currentNode withBranch, token = currentToken parser, rightNode = currentNode statementBranch, nodeType = "NumberNode"}),
-                  nodeType = "LoopNode"}
-    loopAttribute = expression (advanceParser parser) Nothing
+    loopBranch = Tree
+                  (Tree (currentNode fromBranch) (currentToken parser) NoType (currentNode toBranch))
+                  (currentToken parser)
+                  LoopNode
+                  (Tree (currentNode withBranch) (currentToken parser) NoType (currentNode statementBranch))
+    loopAttribute = expression (advanceParser parser) Empty
     fromBranch = loopExpression(advanceParser parser)
     toBranch = loopExpression fromBranch
     withBranch = loopExpression toBranch
     statementBranch = statementExpression withBranch
 
 untilExpression :: Parser -> Parser 
-untilExpression parser = statementBranch{currentNode = Just untilBranch} 
+untilExpression parser = statementBranch{currentNode = untilBranch} 
   where 
-    untilBranch = Node{leftNode = currentNode conditionBranch, token = currentToken parser, rightNode = currentNode statementBranch, nodeType = "UntilNode"}
-    conditionBranch = expression (advanceParser parser) Nothing
+    untilBranch = Tree (currentNode conditionBranch) (currentToken parser) UntilNode (currentNode statementBranch)
+    conditionBranch = expression (advanceParser parser) Empty
     statementBranch = statementExpression conditionBranch
-                      
 
+functionExpression :: Parser -> Parser 
+functionExpression parser 
+  | tokenType (currentToken parser) == function definedTypes = 
+    if tokenType (currentToken (advanceParser parser)) == identifier definedTypes
+    then newParser{currentNode = functionTree}
+    else throwError(InvalidSyntaxError (file parser) "identifier" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  | otherwise = throwError(InvalidSyntaxError (file parser) "function keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  where 
+    varLeaf = Leaf (currentToken (advanceParser parser)) NoType
+    functionTree = Tree varLeaf (currentToken parser) FunctionAssignNode (currentNode newParser) 
+    newParser = parameterExpression (advanceParser (advanceParser parser))
+  
+parameterExpression :: Parser -> Parser 
+parameterExpression parser 
+  | tokenType (currentToken parser) == openParameter definedTypes = statementParser{currentNode = inputBranch} 
+  | otherwise = throwError(InvalidSyntaxError (file parser) "function keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  where
+    parameterParser = registerParameters(advanceParser parser)
+    statementParser = statementExpression parameterParser
+    inputBranch = Tree (currentNode parameterParser) (currentToken parser) NoType (currentNode statementParser)
+
+
+registerParameters :: Parser -> Parser 
+registerParameters parser 
+  | tokenType (currentToken parser) == identifier definedTypes = endParameter{currentNode = registerParameter}
+  | tokenType (currentToken parser) == closeParameter definedTypes = advanceParser parser
+  | otherwise = throwError(InvalidParameterName (file parser) ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  where 
+    registerParameter = Branch (currentToken parser) NoType (currentNode nextParameter)
+    nextParameter = registerParameters(advanceParser parser)
+    endParameter = nextParameter
+
+    
 atom :: Parser -> Parser  
 atom parser 
   | (tokenType (currentToken parser) == intType definedTypes) || 
@@ -93,9 +119,9 @@ atom parser
     (tokenType (currentToken parser) == nullType definedTypes) ||
     (tokenType (currentToken parser) == trueBool definedTypes) ||
     (tokenType (currentToken parser) == falseBool definedTypes) = 
-      advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "NumberNode"}}
+      advanceParser parser { currentNode = Leaf (currentToken parser) NumberNode}
   | tokenType (currentToken parser) == identifier definedTypes =  
-    advanceParser parser { currentNode = Just Node{leftNode = Nothing, token = currentToken parser, rightNode = Nothing, nodeType = "VarAccessNode"}}
+    advanceParser parser { currentNode = Leaf (currentToken parser) VarAccessNode}
   | tokenType (currentToken parser) == leftParent definedTypes = 
     if tokenType (currentToken expressionParser) == rightParent definedTypes
     then advanceParser expressionParser 
@@ -106,106 +132,101 @@ atom parser
     loopExpression parser
   | tokenType (currentToken parser) == untilOperation definedTypes = 
     untilExpression parser
+  | tokenType (currentToken parser) == function definedTypes = 
+    functionExpression parser
   | otherwise = 
     throwError(InvalidSyntaxError (file parser) "value" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   where 
-    expressionParser = expression (advanceParser parser) Nothing 
+    expressionParser = expression (advanceParser parser) Empty
 
 factor :: Parser -> Parser 
 factor parser 
   | (tokenType (currentToken parser) == plusOperation definedTypes) || 
     (tokenType (currentToken parser) == minusOperation definedTypes) ||
     (tokenType (currentToken parser) == notOperation definedTypes) =  
-    newParser  { currentNode = Just Node{leftNode = currentNode newParser, token = currentToken parser, rightNode = Nothing, nodeType = "UnaryNode"}}
+    nextExpressionParser  { currentNode = Branch (currentToken parser) UnaryNode (currentNode nextExpressionParser)}
   | otherwise = atom parser 
   where 
-    newParser = atom (advanceParser parser)
+    nextExpressionParser = atom (advanceParser parser)
   
-exponential :: Parser -> Maybe Node -> Parser 
+exponential :: Parser -> Node -> Parser 
 exponential parser node 
   | tokenType (currentToken parser) == sqrootOperation definedTypes  =
-    term returnParser (Just (Node{leftNode = Nothing, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
-  | isNothing node = exponential newParser (currentNode newParser)
+    term returnParser (Tree Empty (currentToken parser)  BinaryOpNode (currentNode returnParser))
+  | node == Empty = exponential nextExpressionParser (currentNode nextExpressionParser)
   | tokenType (currentToken parser) == powerOperation definedTypes  =
-      term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+      term returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
-    newParser = factor parser 
-    newNewParser = advanceParser parser
-    returnParser = factor newNewParser
+    nextExpressionParser = factor parser 
+    returnParser = factor (advanceParser parser)
 
-term :: Parser -> Maybe Node -> Parser
-term parser node  
-  | isNothing node = term newParser (currentNode newParser)
-  | (tokenType (currentToken parser) == multiplyOperation definedTypes) 
-    || (tokenType (currentToken parser) == divisionOperation definedTypes) 
-    || (tokenType (currentToken parser) == modOperation definedTypes) =
-      term returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+term :: Parser -> Node -> Parser
+term parser node
+  | node == Empty = term nextExpressionParser (currentNode nextExpressionParser)
+  | (tokenType (currentToken parser) == multiplyOperation definedTypes) ||
+    (tokenType (currentToken parser) == divisionOperation definedTypes) ||
+    (tokenType (currentToken parser) == modOperation definedTypes) =
+      term returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
-    newParser = exponential parser Nothing 
-    newNewParser = advanceParser parser
-    returnParser = exponential newNewParser Nothing 
+    nextExpressionParser = exponential parser Empty
+    returnParser = exponential (advanceParser parser) Empty
 
-arithmeticExpression :: Parser -> Maybe Node -> Parser 
+arithmeticExpression :: Parser -> Node -> Parser 
 arithmeticExpression parser node 
-  | isNothing node = arithmeticExpression newParser (currentNode newParser)
+  | node == Empty = arithmeticExpression nextExpressionParser (currentNode nextExpressionParser)
   | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) =
-    arithmeticExpression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+    arithmeticExpression returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
-    newParser = term parser Nothing 
-    newNewParser = advanceParser parser
-    returnParser = term newNewParser Nothing
+    nextExpressionParser = term parser Empty
+    returnParser = term (advanceParser parser) Empty
 
-compareExpression :: Parser -> Maybe Node -> Parser 
+compareExpression :: Parser -> Node -> Parser 
 compareExpression parser node 
-  | isNothing node = compareExpression newParser (currentNode newParser)
+  | node == Empty = compareExpression nextExpressionParser (currentNode nextExpressionParser)
   | (tokenType (currentToken parser) == equalOperation definedTypes) || 
     (tokenType (currentToken parser) == notEqualOperation definedTypes) || 
     (tokenType (currentToken parser) == lessOperation definedTypes) ||
     (tokenType (currentToken parser) == greaterOperation definedTypes) || 
     (tokenType (currentToken parser) == lessEqOperation definedTypes) ||
     (tokenType (currentToken parser) == greaterEqOperation definedTypes) = 
-    compareExpression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+    compareExpression returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
-    newParser = arithmeticExpression parser Nothing 
-    newNewParser = advanceParser parser
-    returnParser = arithmeticExpression newNewParser Nothing
+    nextExpressionParser = arithmeticExpression parser Empty
+    returnParser = arithmeticExpression (advanceParser parser) Empty
 
-logicalExpression :: Parser -> Maybe Node -> Parser 
+logicalExpression :: Parser -> Node -> Parser 
 logicalExpression parser node 
-  | isNothing node = logicalExpression newParser (currentNode newParser)
+  | node == Empty = logicalExpression nextExpressionParser (currentNode nextExpressionParser)
   | (tokenType (currentToken parser) == andOperation definedTypes) || (tokenType (currentToken parser) == orOperation definedTypes) =
-    logicalExpression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+    logicalExpression returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
-    newParser = compareExpression parser Nothing 
-    newNewParser = advanceParser parser
-    returnParser = compareExpression newNewParser Nothing
+    nextExpressionParser = compareExpression parser Empty
+    returnParser = compareExpression (advanceParser parser) Empty
 
-expression :: Parser -> Maybe Node -> Parser 
-expression parser node  
-  | isNothing node = expression newParser (currentNode newParser)
+expression :: Parser -> Node -> Parser 
+expression parser node 
+  | node == Empty = expression nextExpressionParser (currentNode nextExpressionParser)
   | tokenType (currentToken parser) == assignOperation definedTypes =
-    if tokenType (token varNode) == identifier definedTypes
-    then expression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "AssignNode"}))
-    else throwError(InvalidSyntaxError (file parser) "identifier" ("\"" ++ tokenType (token varNode) ++ "\"") (pos (token varNode)))
+    if tokenType (getToken node) == identifier definedTypes
+    then expression returnParser (Tree node (currentToken parser) VarAssignNode (currentNode returnParser))
+    else throwError(InvalidSyntaxError (file parser) "identifier" ("\"" ++ tokenType (getToken node) ++ "\"") (pos (getToken node)))
   | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) =
-    expression returnParser (Just (Node{leftNode = node, token = currentToken parser, rightNode = currentNode returnParser, nodeType = "BinaryOpNode"}))
+    expression returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
-    varNode = fromJust node
-    newParser = logicalExpression parser Nothing 
-    newNewParser = advanceParser parser
-    returnParser = logicalExpression newNewParser Nothing
+    nextExpressionParser = logicalExpression parser Empty
+    returnParser = logicalExpression (advanceParser parser) Empty
 
 parse :: Parser -> Parser 
 parse parser = 
     if tokenType (currentToken newParser) == "EOF"
     then newParser 
-    else throwError(InvalidSyntaxError (file parser) "operator" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
+    else throwError(InvalidSyntaxError (file newParser) "operator" ("\"" ++ tokenType (currentToken newParser) ++ "\"") (pos (currentToken newParser)))
     where
-      newParser = expression parser Nothing
+      newParser = expression parser Empty
 

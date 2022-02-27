@@ -1,6 +1,6 @@
 
 
-process intSum {integer} [integer num1, integer num2]->
+process intSum a b->
     intSum = num1 + num2<-
 
 Main {integer}->

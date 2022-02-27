@@ -1,12 +1,59 @@
 module Types where 
 
+data Position = Position {index :: Int,
+  line :: Int,
+  column :: Int}
+  deriving (Show, Eq, Ord) 
+
+data Token = Token{ tokenType :: String,
+        val :: Maybe Value,
+        pos :: Position}
+        deriving (Show, Eq, Ord) 
+
+data NodeType = 
+  NoType |
+  NumberNode |
+  VarAccessNode |
+  VarAssignNode |
+  BinaryOpNode |
+  UnaryNode |
+  IfNode |
+  LoopNode |
+  UntilNode |
+  FunctionAssignNode
+  deriving (Show, Ord, Eq) 
+
+data Node = Empty | Leaf Token NodeType | Branch Token NodeType Node | Tree Node Token NodeType Node
+  deriving (Show, Ord, Eq)
+
+
+
+-- data Node = Node{
+--   leftNode :: Maybe Node,
+--   token :: Token,
+--   rightNode :: Maybe Node,
+--   nodeType :: String}
+--   deriving (Show, Ord, Eq)  
+
 type Ident = String 
 
 data Value = Int Int |
   Float Float |
   Bool Bool |
-  String String 
-  deriving ( Ord, Eq, Show)
+  String String |
+  Func Function 
+  deriving ( Ord, Eq)
+
+instance Show Value where
+  show (Int a) = show a 
+  show (Float a) = show a 
+  show (Bool a) = show a 
+  show (String a) = a 
+
+data Function = Function{
+  parameters :: [Value],
+  statement :: Node}
+  deriving (Ord, Eq)
 
 
 data Types = Types{intType :: String, 
@@ -34,6 +81,7 @@ data Types = Types{intType :: String,
         greaterOperation :: String,
         lessEqOperation  :: String,
         greaterEqOperation  :: String,
+        separationComma :: String,
         ifOperation :: String,
         elseIfOperation :: String,
         elseOperation :: String,
@@ -42,19 +90,14 @@ data Types = Types{intType :: String,
         toLoopOperation :: String,
         withLoopOperation :: String,
         untilOperation :: String,
+        function :: String,
+        openParameter :: String,
+        closeParameter :: String,
+        returnFunction  :: String,
         openStatement :: String,
         closeStatement :: String,
         endOfFile :: String}
         
-data Position = Position {index :: Int,
-  line :: Int,
-  column :: Int}
-  deriving (Show, Eq) 
-
-data Token = Token{ tokenType :: String,
-        val :: Maybe Value,
-        pos :: Position}
-        deriving Show 
 
 definedTypes :: Types 
 definedTypes = Types{intType = "integer",
@@ -82,6 +125,7 @@ definedTypes = Types{intType = "integer",
                  greaterOperation = ">",
                  lessEqOperation = "<=",
                  greaterEqOperation = ">=",
+                 separationComma = ",",
                  ifOperation = "whatif",
                  elseIfOperation = "orwhatif",
                  elseOperation = "orelse",
@@ -90,6 +134,20 @@ definedTypes = Types{intType = "integer",
                  toLoopOperation = "to",
                  withLoopOperation = "with",
                  untilOperation = "until",
+                 function = "process",
+                 openParameter = "{",
+                 closeParameter = "}",
+                 returnFunction = "output",
                  openStatement = "->",
                  closeStatement = "<-",
                  endOfFile = "EOF"}
+
+getToken :: Node -> Token
+getToken (Leaf tok _) = tok
+getToken (Branch tok _ _) = tok
+getToken (Tree _ tok _ _) = tok
+
+getNodeType :: Node -> NodeType
+getNodeType (Leaf _ typ) = typ
+getNodeType (Branch _ typ _) = typ
+getNodeType (Tree _ _ typ _) = typ

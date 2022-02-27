@@ -1,2 +1,0 @@
-{"heading":0,"id":"70383216","latitude":0,"longitude":0,"timestamp":1624965344}
-{"plateData":["Plate1"]}
