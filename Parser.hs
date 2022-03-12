@@ -79,8 +79,40 @@ untilExpression parser = statementBranch{currentNode = untilBranch}
     conditionBranch = expression (advanceParser parser) Empty
     statementBranch = statementExpression conditionBranch
 
-functionExpression :: Parser -> Parser 
-functionExpression parser 
+runFunctionExpression :: Parser -> Parser 
+runFunctionExpression parser 
+  | tokenType (currentToken parser) == runFunction definedTypes =
+    if tokenType (currentToken (advanceParser parser)) == identifier definedTypes
+    then newParser{currentNode = functionTree}
+    else throwError(InvalidSyntaxError (file parser) "identifier" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  | otherwise = throwError(InvalidSyntaxError (file parser) "function keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  where 
+    identLeaf = Leaf (currentToken (advanceParser parser)) NoType 
+    functionTree = Tree identLeaf (currentToken parser) FunctionRunNode (currentNode newParser) 
+    newParser = runParameterExpression (advanceParser (advanceParser parser))
+
+runParameterExpression :: Parser -> Parser 
+runParameterExpression parser 
+  | tokenType (currentToken parser) == openParameter definedTypes = parameterParser
+  | otherwise = throwError(InvalidSyntaxError (file parser) "function keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  where
+    parameterParser = runParameters(advanceParser parser)
+
+runParameters :: Parser -> Parser 
+runParameters parser 
+  | tokenType (currentToken parser) == closeParameter definedTypes = advanceParser parser
+  | tokenType (currentToken getParameter) == seperatorParameter definedTypes = endParameter{currentNode = parameterTree}
+  | tokenType (currentToken getParameter) == closeParameter definedTypes = (advanceParser getParameter){currentNode = endParameterTree}
+  | otherwise = throwError(InvalidParameterName (file parser) ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
+  where 
+    getParameter = (atom (parser))
+    parameterTree = Branch (currentToken parser) NoType (currentNode nextParameter)
+    endParameterTree = Branch (currentToken parser) NoType Empty 
+    nextParameter = runParameters (advanceParser getParameter)
+    endParameter = nextParameter
+    
+createFunctionExpression :: Parser -> Parser 
+createFunctionExpression parser 
   | tokenType (currentToken parser) == function definedTypes = 
     if tokenType (currentToken (advanceParser parser)) == identifier definedTypes
     then newParser{currentNode = functionTree}
@@ -89,10 +121,10 @@ functionExpression parser
   where 
     varLeaf = Leaf (currentToken (advanceParser parser)) NoType
     functionTree = Tree varLeaf (currentToken parser) FunctionAssignNode (currentNode newParser) 
-    newParser = parameterExpression (advanceParser (advanceParser parser))
+    newParser = createParameterExpression (advanceParser (advanceParser parser))
   
-parameterExpression :: Parser -> Parser 
-parameterExpression parser 
+createParameterExpression :: Parser -> Parser 
+createParameterExpression parser 
   | tokenType (currentToken parser) == openParameter definedTypes = statementParser{currentNode = inputBranch} 
   | otherwise = throwError(InvalidSyntaxError (file parser) "function keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
   where
@@ -103,12 +135,15 @@ parameterExpression parser
 
 registerParameters :: Parser -> Parser 
 registerParameters parser 
-  | tokenType (currentToken parser) == identifier definedTypes = endParameter{currentNode = registerParameter}
-  | tokenType (currentToken parser) == closeParameter definedTypes = advanceParser parser
+  | tokenType (currentToken parser) == identifier definedTypes = case ( tokenType (currentToken checkSeperator)) of 
+    "," -> endParameter{currentNode = registerParameter}
+    "}" -> (advanceParser checkSeperator){currentNode = Branch (currentToken parser) NoType Empty}
+  | tokenType (currentToken parser) == closeParameter definedTypes = advanceParser checkSeperator
   | otherwise = throwError(InvalidParameterName (file parser) ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))
   where 
+    checkSeperator = advanceParser parser
     registerParameter = Branch (currentToken parser) NoType (currentNode nextParameter)
-    nextParameter = registerParameters(advanceParser parser)
+    nextParameter = registerParameters(advanceParser checkSeperator)
     endParameter = nextParameter
 
     
@@ -133,7 +168,9 @@ atom parser
   | tokenType (currentToken parser) == untilOperation definedTypes = 
     untilExpression parser
   | tokenType (currentToken parser) == function definedTypes = 
-    functionExpression parser
+    createFunctionExpression parser
+  | tokenType (currentToken parser) == runFunction definedTypes = 
+    runFunctionExpression parser
   | otherwise = 
     throwError(InvalidSyntaxError (file parser) "value" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))
   where 

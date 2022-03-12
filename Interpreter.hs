@@ -2,7 +2,7 @@ module Interpreter where
 import System.IO
 import Data.Maybe
 import Data.Fixed
-import Data.Map hiding (null)
+import Data.Map hiding (null, map)
 import Data.Bits 
 import Prelude hiding (lookup)
 import Parser
@@ -28,6 +28,8 @@ data Number = Number{
   numPos :: Maybe Position
 }
   deriving (Show, Eq)
+
+
 
 getEnvironmentValue :: Environment -> String -> Maybe Value
 getEnvironmentValue env name = 
@@ -256,7 +258,8 @@ visit node intptr
   | typ == IfNode = visitIfNode node intptr
   | typ == LoopNode = visitLoopNode node intptr
   | typ == UntilNode = visitUntilNode node intptr
-  -- | typ == CreateFunctionNode = visitCreateFunctionNode node intptr
+  | typ == FunctionAssignNode = visitCreateFunctionNode node intptr
+  | typ == FunctionRunNode = visitRunFunctionNode node intptr
   | otherwise = error (show node)
   where 
     typ = getNodeType node
@@ -371,17 +374,43 @@ visitUntilNode node@(Tree left _ _ right) intptr
     nextIteration = visit right intptr
 
 visitCreateFunctionNode :: Node -> Interpreter -> Interpreter
-visitCreateFunctionNode node@(Tree l1 _ _ (Tree r1 _ _ r2)) intptr = newIntptr
+visitCreateFunctionNode node@(Tree l1 _ _ (Tree r1 _ _ r2)) intptr = newEnv
  where 
-   funcName = visit 
+   funcName = getVariableName(fromJust(val (getToken l1)))
+   param = visitCreateParameterNode r1
+   function = Function{parameters = param, statement = r2}
+   newEnv = intptr {intEnv = setEnvironmentValue (intEnv intptr) funcName (Func function)}
 
 
--- visitCreateParameterNode :: Node -> [Value]
--- visitCreateParameterNode isJust = fromJust[val (currentToken nod)] ++ visitCreateParameterNode(leftNode node)
--- visitCreateParameterNode Nothing = []
+visitCreateParameterNode :: Node -> [String]
+visitCreateParameterNode node@(Branch tok typ r1) = [checkString(fromJust(val(tok)))] ++ visitCreateParameterNode r1
+visitCreateParameterNode Empty = []
 
--- visitFunctionNode :: Node -> Interpreter -> Interpreter
--- visitFunctionNode node intptr = 
+checkString :: Value -> String
+checkString (String a) = a 
+
+visitRunFunctionNode :: Node -> Interpreter -> Interpreter
+visitRunFunctionNode node@(Tree l1 _ _ r1) intptr = case getEnvironmentValue (intEnv intptr) funcName of 
+  Just (Func a) -> visitFunctionStatement (statement a) intptr (visitRunParameters r1 (parameters a) intptr)
+  Nothing -> throwError(NotDefinedError (intprFileName intptr) ( "\"" ++ funcName ++ "\"") (pos (getToken l1)))
+  _ -> throwError(InvalidSyntaxError (intprFileName intptr) "function" ( "\"" ++ tokenType (getToken l1) ++ "\"")  (pos (getToken l1)))
+  where
+    funcName = getVariableName(fromJust(val (getToken l1)))
+
+visitRunParameters :: Node -> [String] -> Interpreter -> Interpreter
+visitRunParameters parVal parNam intptr = case (getNodeLength parVal) == (length parNam) of 
+  True -> setParameterValue intptr (zipMapNodeTree getValue parNam parVal)
+  False -> throwError(InvalidNumberOfArguments (intprFileName intptr) (length parNam) (getNodeLength parVal) (pos (getToken parVal)))
+
+setParameterValue :: Interpreter -> [(String, Value)] -> Interpreter
+setParameterValue intptr [] = intptr
+setParameterValue intptr [(name, val)] = intptr {intEnv = setEnvironmentValue (intEnv intptr) name val} 
+setParameterValue intptr (x@(name, val):xs)  = setParameterValue (intptr {intEnv = setEnvironmentValue (intEnv intptr) name val}) xs
+
+visitFunctionStatement :: Node -> Interpreter -> Interpreter -> Interpreter 
+visitFunctionStatement stat intptr funcIntptr = setResult (fromJust (currentResult newIntptr)) intptr
+  where 
+    newIntptr = visit stat funcIntptr
 
 runResult :: Interpreter -> String -> Interpreter
 runResult inter input 

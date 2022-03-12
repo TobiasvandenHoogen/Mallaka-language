@@ -68,6 +68,7 @@ createTokens lexer =
               | currentChar lexer == ')' = addToken (advanceLexer lexer) Token {tokenType = rightParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '{' = addToken (advanceLexer lexer) Token {tokenType = openParameter definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '}' = addToken (advanceLexer lexer) Token {tokenType = closeParameter definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == ',' = addToken (advanceLexer lexer) Token {tokenType = seperatorParameter definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '&' = addToken (advanceLexer lexer) Token {tokenType = andOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '|' = addToken (advanceLexer lexer) Token {tokenType = orOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '!' = 
@@ -117,6 +118,7 @@ getKeyWord keyword pos
   | keyword == untilOperation definedTypes = Token{tokenType = untilOperation definedTypes, val = Nothing, pos = pos}
   | keyword == function definedTypes = Token{tokenType = function definedTypes, val = Nothing, pos = pos}
   | keyword == returnFunction definedTypes = Token{tokenType = returnFunction definedTypes, val = Nothing, pos = pos}
+  | keyword == runFunction definedTypes = Token{tokenType = runFunction definedTypes, val = Nothing, pos = pos}
   | otherwise = Token{tokenType = identifier definedTypes, val = Just(String(keyword)), pos = pos}
 
 

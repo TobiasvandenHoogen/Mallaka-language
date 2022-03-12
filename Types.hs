@@ -1,5 +1,7 @@
 module Types where 
 
+import Data.Maybe
+
 data Position = Position {index :: Int,
   line :: Int,
   column :: Int}
@@ -20,13 +22,12 @@ data NodeType =
   IfNode |
   LoopNode |
   UntilNode |
-  FunctionAssignNode
+  FunctionAssignNode |
+  FunctionRunNode
   deriving (Show, Ord, Eq) 
 
 data Node = Empty | Leaf Token NodeType | Branch Token NodeType Node | Tree Node Token NodeType Node
   deriving (Show, Ord, Eq)
-
-
 
 -- data Node = Node{
 --   leftNode :: Maybe Node,
@@ -49,11 +50,12 @@ instance Show Value where
   show (Float a) = show a 
   show (Bool a) = show a 
   show (String a) = a 
+  show (Func a) = (show a)
 
 data Function = Function{
-  parameters :: [Value],
+  parameters :: [String],
   statement :: Node}
-  deriving (Ord, Eq)
+  deriving (Ord, Eq, Show)
 
 
 data Types = Types{intType :: String, 
@@ -93,7 +95,9 @@ data Types = Types{intType :: String,
         function :: String,
         openParameter :: String,
         closeParameter :: String,
+        seperatorParameter :: String,
         returnFunction  :: String,
+        runFunction :: String,
         openStatement :: String,
         closeStatement :: String,
         endOfFile :: String}
@@ -137,7 +141,9 @@ definedTypes = Types{intType = "integer",
                  function = "process",
                  openParameter = "{",
                  closeParameter = "}",
+                 seperatorParameter = ",",
                  returnFunction = "output",
+                 runFunction = "run",
                  openStatement = "->",
                  closeStatement = "<-",
                  endOfFile = "EOF"}
@@ -147,7 +153,26 @@ getToken (Leaf tok _) = tok
 getToken (Branch tok _ _) = tok
 getToken (Tree _ tok _ _) = tok
 
+getValue :: Node -> Value
+getValue (Leaf tok _) = fromJust(val tok)
+getValue (Branch tok _ _) = fromJust(val tok)
+getValue (Tree _ tok _ _) = fromJust(val tok)
+
 getNodeType :: Node -> NodeType
 getNodeType (Leaf _ typ) = typ
 getNodeType (Branch _ typ _) = typ
 getNodeType (Tree _ _ typ _) = typ
+
+getNodeLength :: Node -> Int
+getNodeLength Empty = 0 
+getNodeLength (Leaf _ _ ) = 1
+getNodeLength (Branch _ _ r1) = 1 + getNodeLength r1
+getNodeLength (Tree l1 _ _ r1) = getNodeLength l1 + 1 + getNodeLength r1
+
+zipMapNodeTree :: (Node -> b) -> [c] -> Node -> [(c, b)]
+zipMapNodeTree f [] b = []
+zipMapNodeTree f [a] b = [(a, f b)]
+zipMapNodeTree f a e@(Empty) = [(head a, f e)]
+zipMapNodeTree f a l@(Leaf _ _) = [(head a, f l)]
+zipMapNodeTree f a b@(Branch _ _ r1) = [(head a, f b)] ++ zipMapNodeTree f (tail a) r1  
+zipMapNodeTree f a tr@(Tree _ _ _ r1) = [(head a, f tr)] ++ zipMapNodeTree f (tail a) r1  

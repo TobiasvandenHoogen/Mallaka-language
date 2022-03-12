@@ -18,10 +18,10 @@ cabal-version:       >=1.10
 
 executable Mallaka-language
   main-is:             Main.hs
-  -- other-modules:       
+  other-modules:       Types, Exception, Lexer, Parser, Interpreter 
   -- other-extensions:    '
   ghc-options:   -w
-  build-depends:       base >=4.9 && <4.10
+  build-depends:       base >=4.9
                         , containers
   -- hs-source-dirs:  
   default-language:    Haskell2010

@@ -7,7 +7,8 @@ data Error = InvalidCharError String String Position |
              DivisionByZeroError String Position |
              NotDefinedError String String Position |
              ConditionError String Position |
-             InvalidParameterName String String Position 
+             InvalidParameterName String String Position |
+             InvalidNumberOfArguments String Int Int Position 
 
 throwError :: Error -> a
 
@@ -28,3 +29,7 @@ throwError (ConditionError fn pos) = error (
 
 throwError (InvalidParameterName fn var pos) = error ( 
   "\n" ++ fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: " ++ var ++ " is not a valid parameter name.")
+
+throwError (InvalidNumberOfArguments fn num1 num2 pos) = error ( 
+  "\n" ++ fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: expected " ++ (show num1) ++ " arguments. Got: " ++ (show num2))
+
