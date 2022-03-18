@@ -2,15 +2,23 @@ module Types where
 
 import Data.Maybe
 
-data Position = Position {index :: Int,
-  line :: Int,
-  column :: Int}
-  deriving (Show, Eq, Ord) 
 
 data Token = Token{ tokenType :: String,
         val :: Maybe Value,
         pos :: Position}
         deriving (Show, Eq, Ord) 
+
+data Value = Int Int |
+  Float Float |
+  Bool Bool |
+  String String |
+  Func Function 
+  deriving ( Ord, Eq)
+
+data Position = Position {index :: Int,
+  line :: Int,
+  column :: Int}
+  deriving (Show, Eq, Ord) 
 
 data NodeType = 
   NoType |
@@ -29,21 +37,8 @@ data NodeType =
 data Node = Empty | Leaf Token NodeType | Branch Token NodeType Node | Tree Node Token NodeType Node
   deriving (Show, Ord, Eq)
 
--- data Node = Node{
---   leftNode :: Maybe Node,
---   token :: Token,
---   rightNode :: Maybe Node,
---   nodeType :: String}
---   deriving (Show, Ord, Eq)  
-
 type Ident = String 
 
-data Value = Int Int |
-  Float Float |
-  Bool Bool |
-  String String |
-  Func Function 
-  deriving ( Ord, Eq)
 
 instance Show Value where
   show (Int a) = show a 
@@ -61,6 +56,8 @@ data Function = Function{
 data Types = Types{intType :: String, 
         floatType :: String,
         stringType :: String,
+        boolType :: String,
+        functionType :: String,
         trueBool :: String,
         falseBool :: String,
         nullType :: String,
@@ -109,6 +106,8 @@ definedTypes :: Types
 definedTypes = Types{intType = "integer",
                  floatType = "float",
                  stringType = "string",
+                 boolType = "boolean",
+                 functionType = "function",
                  trueBool = "True",
                  falseBool = "False",
                  nullType = "null",
@@ -162,8 +161,14 @@ getValue (Leaf tok _) = fromJust(val tok)
 getValue (Branch tok _ _) = fromJust(val tok)
 getValue (Tree _ tok _ _) = fromJust(val tok)
 
+printValueType :: Value -> String 
+printValueType (Int a) = intType definedTypes
+printValueType (Float a) = floatType definedTypes
+printValueType (Bool a) = boolType definedTypes
+printValueType (String a) = stringType definedTypes
+printValueType (Func a) = functionType definedTypes
+
 getNodeType :: Node -> NodeType
-getNodeType (Empty) = error "Bruh"
 getNodeType (Leaf _ typ) = typ
 getNodeType (Branch _ typ _) = typ
 getNodeType (Tree _ _ typ _) = typ

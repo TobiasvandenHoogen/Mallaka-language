@@ -65,6 +65,7 @@ addValue (Int a) (Int b) = Int( a + b)
 addValue (Int a) (Float b) = Float( fromIntegral a + b)
 addValue (Float a) (Int b) = Float( a + fromIntegral b)
 addValue (Float a) (Float b) = Float(a + b)
+addValue (String a) (String b) = String(a ++ b)
 
 subValue :: Value -> Value -> Value
 subValue (Int a) (Int b) = Int( a - b)
@@ -77,6 +78,7 @@ mulValue (Int a) (Int b) = Int( a * b)
 mulValue (Int a) (Float b) = Float( fromIntegral a * b)
 mulValue (Float a) (Int b) = Float( a * fromIntegral b)
 mulValue (Float a) (Float b) = Float(a * b)
+mulValue (String a) (Int b) = String(concat (replicate b a))
 
 divValue :: Value -> Value -> Value
 divValue (Int a) (Int b) = Int( a `div` b)

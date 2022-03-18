@@ -160,7 +160,8 @@ atom parser
     (tokenType (currentToken parser) == floatType definedTypes) ||
     (tokenType (currentToken parser) == nullType definedTypes) ||
     (tokenType (currentToken parser) == trueBool definedTypes) ||
-    (tokenType (currentToken parser) == falseBool definedTypes) = 
+    (tokenType (currentToken parser) == falseBool definedTypes) ||
+    (tokenType (currentToken parser) == stringType definedTypes) = 
       advanceParser parser { currentNode = Leaf (currentToken parser) NumberNode}
   | tokenType (currentToken parser) == identifier definedTypes =  
     advanceParser parser { currentNode = Leaf (currentToken parser) VarAccessNode}

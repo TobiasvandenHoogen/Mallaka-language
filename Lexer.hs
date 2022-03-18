@@ -13,7 +13,8 @@ data Lexer = Lexer{
     currentPosition :: Position,
     currentChar :: Char,
     lexerError :: Error,
-    tokenList :: [Token]}
+    tokenList :: [Token]
+    } deriving (Show)
 
 advancePosition :: Position -> Char -> Position
 advancePosition pos currentChar =
@@ -99,12 +100,31 @@ addToken lexer token =
 
 makeString :: Lexer -> Lexer 
 makeString lexer = 
-  makeLetters lexer "" (currentPosition lexer) where 
-    makeLetters :: Lexer -> String -> Position -> Lexer
-    makeLetters lexer string pos 
-      | isDigit(currentChar lexer) || isAlpha(currentChar lexer) || (currentChar lexer == '_') =
-        makeLetters (advanceLexer lexer) (string ++ [currentChar lexer]) pos
-      | otherwise = addToken lexer (getKeyWord string pos)
+  addToken (snd val) (Token {tokenType = stringType definedTypes, val = Just(String (fst val)), pos = currentPosition lexer})
+  where
+    val = createString (advanceLexer lexer)
+    createString :: Lexer -> (String, Lexer)
+    createString lexer
+      | (currentChar lexer) == '\"' = ("", advanceLexer lexer) 
+      | (currentChar lexer) == '\\' = case (currentChar checkEscapeChar) of
+        '0' -> ((['\0'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape)) 
+        'a' -> ((['\a'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        'b' -> ((['\b'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        'f' -> ((['\f'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        'n' -> ((['\n'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        'r' -> ((['\r'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        't' -> ((['\t'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        'v' -> ((['\v'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        '&' -> (("\&" ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        '\'' -> ((['\''] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        '\\' -> ((['\\'] ++ fst nextCharAfterEscape), (snd nextCharAfterEscape))
+        _ -> ("", lexer{lexerError = throwError (lexerError lexer) (InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ [currentChar checkEscapeChar] ++ "\"") (currentPosition lexer))})
+      | isPrint(currentChar lexer) = (([currentChar lexer] ++ fst nextChar), (snd nextChar))
+      | otherwise = ("", lexer{lexerError = throwError (lexerError lexer) (InvalidSyntaxError  (fileName lexer) "\""  ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))})
+      where 
+        checkEscapeChar = advanceLexer lexer
+        nextCharAfterEscape = createString (advanceLexer checkEscapeChar)
+        nextChar = createString (advanceLexer lexer)
 
 makeWord :: Lexer -> Lexer 
 makeWord lexer = 

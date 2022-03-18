@@ -12,7 +12,8 @@ data ErrorType = InvalidCharError String String Position |
              NotDefinedError String String Position |
              ConditionError String Position |
              InvalidParameterName String String Position |
-             InvalidNumberOfArguments String Int Int Position 
+             InvalidNumberOfArguments String Int Int Position |
+             InvalidOperation String String String Position
 
 throwError :: Error -> ErrorType -> Error
 throwError (Error occ lst) (InvalidCharError fn err pos) = Error{
@@ -47,6 +48,11 @@ throwError (Error occ lst) (InvalidParameterName fn var pos) = Error{
 throwError (Error occ lst) (InvalidNumberOfArguments fn num1 num2 pos) = Error{
  hasOccurred = True, 
  errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: expected " ++ (show num1) ++ " arguments. Got: " ++ (show num2))]
+} 
+
+throwError (Error occ lst) (InvalidOperation fn typ1 typ2 pos) = Error{
+ hasOccurred = True, 
+ errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: Invalid operation between : " ++ typ1  ++ " and : " ++ typ2)]
 } 
   
 
