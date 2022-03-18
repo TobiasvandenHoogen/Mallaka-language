@@ -60,6 +60,7 @@ data Function = Function{
 
 data Types = Types{intType :: String, 
         floatType :: String,
+        stringType :: String,
         trueBool :: String,
         falseBool :: String,
         nullType :: String,
@@ -74,6 +75,7 @@ data Types = Types{intType :: String,
         modOperation :: String,
         leftParent :: String,
         rightParent :: String,
+        stringComma :: String,
         andOperation :: String,
         orOperation :: String,
         notOperation :: String,
@@ -106,6 +108,7 @@ data Types = Types{intType :: String,
 definedTypes :: Types 
 definedTypes = Types{intType = "integer",
                  floatType = "float",
+                 stringType = "string",
                  trueBool = "True",
                  falseBool = "False",
                  nullType = "null",
@@ -120,6 +123,7 @@ definedTypes = Types{intType = "integer",
                  assignOperation = "=",
                  leftParent = "(",
                  rightParent = ")",
+                 stringComma = "\"",
                  andOperation = "&",
                  orOperation = "|",
                  notOperation = "!",
@@ -159,6 +163,7 @@ getValue (Branch tok _ _) = fromJust(val tok)
 getValue (Tree _ tok _ _) = fromJust(val tok)
 
 getNodeType :: Node -> NodeType
+getNodeType (Empty) = error "Bruh"
 getNodeType (Leaf _ typ) = typ
 getNodeType (Branch _ typ _) = typ
 getNodeType (Tree _ _ typ _) = typ
@@ -167,12 +172,8 @@ getNodeLength :: Node -> Int
 getNodeLength Empty = 0 
 getNodeLength (Leaf _ _ ) = 1
 getNodeLength (Branch _ _ r1) = 1 + getNodeLength r1
-getNodeLength (Tree l1 _ _ r1) = getNodeLength l1 + 1 + getNodeLength r1
+getNodeLength (Tree l1 _ _ r1) = 1 + getNodeLength r1
 
-zipMapNodeTree :: (Node -> b) -> [c] -> Node -> [(c, b)]
-zipMapNodeTree f [] b = []
-zipMapNodeTree f [a] b = [(a, f b)]
-zipMapNodeTree f a e@(Empty) = [(head a, f e)]
-zipMapNodeTree f a l@(Leaf _ _) = [(head a, f l)]
-zipMapNodeTree f a b@(Branch _ _ r1) = [(head a, f b)] ++ zipMapNodeTree f (tail a) r1  
-zipMapNodeTree f a tr@(Tree _ _ _ r1) = [(head a, f tr)] ++ zipMapNodeTree f (tail a) r1  
+
+mapInterpreter :: a -> (a -> b) -> (c -> d) -> [d]
+mapInterpreter = undefined 

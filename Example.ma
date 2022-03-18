@@ -1,7 +1,7 @@
 
 
-process intSum a b->
-    intSum = num1 + num2<-
+process intSum {a, b}->(
+    intSum = num1 + num2)<-
 
 Main {integer}->
     num1 = 8

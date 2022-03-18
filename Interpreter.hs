@@ -2,8 +2,9 @@ module Interpreter where
 import System.IO
 import Data.Maybe
 import Data.Fixed
-import Data.Map hiding (null, map)
+import Data.Map hiding (null, map, foldr)
 import Data.Bits 
+import Data.List hiding (lookup, insert, delete)
 import Prelude hiding (lookup)
 import Parser
 import Lexer
@@ -13,6 +14,7 @@ import Types
 data Interpreter = Interpreter{
   intprFileName :: String,
   intEnv :: Environment,
+  intError :: Error,
   currentResult :: Maybe Number
 }
   deriving Show 
@@ -54,9 +56,9 @@ removeEnvironmentValue env key =
 getVariableName :: Value -> String 
 getVariableName (String a ) = a 
 
-getBoolValue :: Value -> Interpreter -> Node -> Bool
-getBoolValue (Bool a) i n = a
-getBoolValue a i n = throwError(ConditionError(intprFileName i) (pos (getToken n)))
+getBoolValue :: Value -> Interpreter -> Node -> (Interpreter ,Bool)
+getBoolValue (Bool a) i n = (i, a)
+getBoolValue a i n =  (i{intError = throwError (intError i) (ConditionError(intprFileName i) (pos (getToken n)))}, True) --throwError(ConditionError(intprFileName i) (pos (getToken n)))
 
 addValue :: Value -> Value -> Value
 addValue (Int a) (Int b) = Int( a + b)
@@ -244,12 +246,20 @@ isZero (Float a)
   | a == 0.0 = True
   | otherwise = False
 
+zipMapNodeTree :: (Node -> Interpreter -> Interpreter) -> [c] -> Node -> Interpreter -> [(c, Number)]
+zipMapNodeTree f [] b c = []
+zipMapNodeTree f a e@(Empty) c = [(head a,  fromJust(currentResult (f e c)))]
+zipMapNodeTree f a l@(Leaf _ _)  c = [(head a, fromJust(currentResult (f l c)))]
+zipMapNodeTree f a b@(Branch _ _ r1) c = [(head a, fromJust(currentResult (f b c)))] ++ zipMapNodeTree f (tail a) r1 c  
+zipMapNodeTree f a tr@(Tree l1 _ _ r1) c = [(head a, fromJust(currentResult (f l1 c)))] ++ zipMapNodeTree f (tail a) r1 c 
+
 setResult :: Number -> Interpreter -> Interpreter
 setResult num inter =
   inter{currentResult = Just num}
 
 visit :: Node -> Interpreter -> Interpreter
 visit node intptr
+  | hasOccurred (intError intptr) = intptr 
   | typ == NumberNode = visitNumberNode node intptr
   | typ == VarAccessNode = visitVarAccessNode node intptr
   | typ == VarAssignNode = visitVarAssignNode node intptr
@@ -264,9 +274,12 @@ visit node intptr
   where 
     typ = getNodeType node
 
+
+
 visitNumberNode :: Node -> Interpreter -> Interpreter
-visitNumberNode node =
-  setResult (Number{numberValue = fromJust(val tok), numPos = Just (pos tok)}) 
+visitNumberNode node intptr = case val tok of 
+  (Just a) -> setResult (Number{numberValue = fromJust(val tok), numPos = Just (pos tok)}) intptr
+  Nothing -> intptr
   where
     tok = getToken node
 
@@ -274,16 +287,18 @@ visitVarAccessNode :: Node -> Interpreter -> Interpreter
 visitVarAccessNode node intptr = 
   if isJust(value)
   then setResult Number{numberValue = fromJust(value), numPos = Just (pos tok)} intptr
-  else throwError(NotDefinedError (intprFileName intptr) ( "\"" ++ getVariableName(fromJust(val tok)) ++ "\"") (pos tok))
+  else intptr{intError = throwError (intError intptr) (NotDefinedError (intprFileName intptr) ( "\"" ++ getVariableName(fromJust(val tok)) ++ "\"") (pos tok))}
   where 
     tok = getToken node
     value = getEnvironmentValue (intEnv intptr) (getVariableName(fromJust(val tok)))
 
 visitVarAssignNode :: Node -> Interpreter -> Interpreter
-visitVarAssignNode node@(Tree left tok _ right) intptr = 
-  newEnv
+visitVarAssignNode node@(Tree left tok _ right) intptr 
+  | hasOccurred (intError visitValue) = intptr{intError = intError visitValue} 
+  | otherwise = newEnv
   where
-    valueNode = fromJust(currentResult (visit right intptr))
+    visitValue = visit right intptr
+    valueNode = fromJust(currentResult visitValue)
     varName = getVariableName(fromJust(val (getToken left)))
     value = setResult valueNode intptr
     valueResult = fromJust(currentResult value)
@@ -291,13 +306,15 @@ visitVarAssignNode node@(Tree left tok _ right) intptr =
 
 visitBinaryOpNode :: Node -> Interpreter -> Interpreter
 visitBinaryOpNode node@(Tree left tok _ right) intptr
+  | hasOccurred (intError visitRight) = intptr{intError = (intError visitRight)}
+  | tokenType tok == sqrootOperation definedTypes =  setResult (sqrootNumber num2) intptr
+  | hasOccurred (intError visitLeft) = intptr{intError = (intError visitLeft)}
   | tokenType tok == plusOperation definedTypes = setResult (addNumber num1 num2) intptr
   | tokenType tok == minusOperation definedTypes = setResult (subNumber num1 num2) intptr
   | tokenType tok == multiplyOperation definedTypes = setResult (mulNumber num1 num2) intptr
-  | tokenType tok == divisionOperation definedTypes = setResult (divNumber num1 numCheck) intptr
+  | tokenType tok == divisionOperation definedTypes = numCheck
   | tokenType tok == modOperation definedTypes = setResult (modNumber num1 num2) intptr
   | tokenType tok == powerOperation definedTypes = setResult (powNumber num1 num2) intptr
-  | tokenType tok == sqrootOperation definedTypes = setResult (sqrootNumber num2) intptr
   | tokenType tok == andOperation definedTypes = setResult (andNumber num1 num2) intptr
   | tokenType tok == orOperation definedTypes = setResult (orNumber num1 num2) intptr
   | tokenType tok == equalOperation definedTypes = setResult (eqNumber num1 num2) intptr
@@ -307,51 +324,69 @@ visitBinaryOpNode node@(Tree left tok _ right) intptr
   | tokenType tok == greaterEqOperation definedTypes = setResult (greaterEqNumber num1 num2) intptr
   | tokenType tok == lessEqOperation definedTypes = setResult (lessEqNumber num1 num2) intptr
   where 
-    num1 = fromJust(currentResult (visit left intptr))
-    num2 = fromJust(currentResult (visit right intptr))
+    visitLeft = visit left intptr
+    visitRight = visit right intptr
+    num1 = fromJust(currentResult (visitLeft))
+    num2 = fromJust(currentResult (visitRight))
     numCheck = 
       if isZero (numberValue num2)
-      then throwError(DivisionByZeroError (intprFileName intptr)  (pos tok))
-      else num2
+      then intptr{intError = throwError (intError intptr) (DivisionByZeroError (intprFileName intptr) (pos tok))}
+      else setResult (divNumber num1 num2) intptr
 
 visitUnaryNode :: Node -> Interpreter -> Interpreter
 visitUnaryNode node@(Branch _ _ right) intptr
+  | hasOccurred (intError visitValue) = intptr{intError = intError visitValue} 
   | tokenType tok == minusOperation definedTypes = setResult (mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing}) intptr
   | tokenType tok == notOperation definedTypes = setResult (notNumber num1) intptr
   | otherwise = setResult num1 intptr
   where 
-    num1 = fromJust(currentResult(visit right intptr))
+    visitValue = visit right intptr
+    num1 = fromJust(currentResult visitValue)
     tok = getToken node
 
 visitIfNode :: Node -> Interpreter -> Interpreter
-visitIfNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok _ right) intptr
+visitIfNode node@(Tree left tok _ right) intptr
     | tokenType tok == ifOperation definedTypes ||
       tokenType tok == elseIfOperation definedTypes = 
-        if conditionResult
-        then setResult ifResult intptr
-        else goToNextCondition
+      visitIfConditionNode node intptr 
+    | hasOccurred (intError elseStatement) = intptr{intError = intError elseStatement}
     | tokenType tok == elseOperation definedTypes =
       setResult elseResult intptr 
     | otherwise = intptr
     where 
-      conditionBranch = visit leftLeft intptr
-      conditionResult = getBoolValue (numberValue(fromMaybe Number{} (currentResult conditionBranch))) intptr leftLeft
-      ifStatement = visit leftRight intptr
-      ifResult = fromJust(currentResult ifStatement)
       elseStatement = visit left intptr 
-      elseResult = fromJust(currentResult ifStatement)
-      goToNextCondition = 
+      elseResult = fromJust(currentResult elseStatement)
+visitIfNode node _ = error (show node)
+
+visitIfConditionNode :: Node -> Interpreter -> Interpreter 
+visitIfConditionNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok _ right) intptr
+ | hasOccurred (intError conditionBranch) = intptr{intError = intError conditionBranch}
+ | hasOccurred (intError errIntptr) = errIntptr 
+ | conditionResult = setResult ifResult intptr
+ | otherwise = goToNextCondition
+ where 
+   conditionBranch = visit leftLeft intptr
+   conditionVisit = getBoolValue (numberValue(fromMaybe Number{} (currentResult conditionBranch))) intptr leftLeft
+   errIntptr = fst conditionVisit
+   conditionResult = snd conditionVisit 
+   ifStatement = visit leftRight intptr
+   ifResult = fromJust(currentResult ifStatement)
+   goToNextCondition = 
         if right == Empty
         then intptr
         else visitIfNode right intptr
 
 visitLoopNode :: Node -> Interpreter -> Interpreter
-visitLoopNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok typ right@(Tree rightLeft _ _ rightRight)) intptr = 
-  runLoopNode fromValue toValue withValue statementNode intptr
+visitLoopNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok typ right@(Tree rightLeft _ _ rightRight)) intptr 
+  | hasOccurred (intError withVisit) = intptr{intError = intError withVisit}
+  | otherwise = runLoopNode fromValue toValue withValue statementNode intptr
   where 
-    fromValue = fromJust(currentResult (visit leftLeft intptr ) )
-    toValue = fromJust(currentResult (visit leftRight intptr ) )
-    withValue = fromJust(currentResult (visit rightLeft intptr ) )
+    fromVisit = visit leftLeft intptr
+    toVisit = visit leftRight fromVisit
+    withVisit = visit rightLeft toVisit
+    fromValue = fromJust(currentResult ( fromVisit ) )
+    toValue = fromJust(currentResult (toVisit ) )
+    withValue = fromJust(currentResult (withVisit ) )
     statementNode = rightRight
 visitLoopNode node@(Branch _ _ right) intptr = visit right intptr
 
@@ -367,10 +402,12 @@ runLoopNode fromValue toValue withValue statementNode intptr
 
 visitUntilNode :: Node -> Interpreter -> Interpreter
 visitUntilNode node@(Tree left _ _ right) intptr 
-  | getBoolValue (numberValue conditionResult) intptr left = intptr
+  | hasOccurred (intError conditionVisit) = intptr{intError = intError conditionVisit}
+  | snd (getBoolValue (numberValue conditionResult) intptr left) = intptr
   | otherwise = visitUntilNode node nextIteration
   where 
-    conditionResult = fromJust(currentResult (visit left intptr))
+    conditionVisit = visit left intptr
+    conditionResult = fromJust(currentResult (conditionVisit))
     nextIteration = visit right intptr
 
 visitCreateFunctionNode :: Node -> Interpreter -> Interpreter
@@ -392,29 +429,31 @@ checkString (String a) = a
 visitRunFunctionNode :: Node -> Interpreter -> Interpreter
 visitRunFunctionNode node@(Tree l1 _ _ r1) intptr = case getEnvironmentValue (intEnv intptr) funcName of 
   Just (Func a) -> visitFunctionStatement (statement a) intptr (visitRunParameters r1 (parameters a) intptr)
-  Nothing -> throwError(NotDefinedError (intprFileName intptr) ( "\"" ++ funcName ++ "\"") (pos (getToken l1)))
-  _ -> throwError(InvalidSyntaxError (intprFileName intptr) "function" ( "\"" ++ tokenType (getToken l1) ++ "\"")  (pos (getToken l1)))
+  Nothing -> intptr{intError = throwError (intError intptr) (NotDefinedError (intprFileName intptr) ( "\"" ++ funcName ++ "\"") (pos (getToken l1)))}
+  _ -> intptr{intError = throwError (intError intptr) (InvalidSyntaxError (intprFileName intptr) "function" ( "\"" ++ tokenType (getToken l1) ++ "\"")  (pos (getToken l1)))}
   where
     funcName = getVariableName(fromJust(val (getToken l1)))
 
 visitRunParameters :: Node -> [String] -> Interpreter -> Interpreter
 visitRunParameters parVal parNam intptr = case (getNodeLength parVal) == (length parNam) of 
-  True -> setParameterValue intptr (zipMapNodeTree getValue parNam parVal)
-  False -> throwError(InvalidNumberOfArguments (intprFileName intptr) (length parNam) (getNodeLength parVal) (pos (getToken parVal)))
+  True ->  setParameterValue intptr (zipMapNodeTree visit parNam parVal intptr)
+  False -> intptr{intError = throwError (intError intptr) (InvalidNumberOfArguments (intprFileName intptr) (length parNam) (getNodeLength parVal) (pos (getToken parVal)))}
 
-setParameterValue :: Interpreter -> [(String, Value)] -> Interpreter
+setParameterValue :: Interpreter -> [(String, Number)] -> Interpreter
 setParameterValue intptr [] = intptr
-setParameterValue intptr [(name, val)] = intptr {intEnv = setEnvironmentValue (intEnv intptr) name val} 
-setParameterValue intptr (x@(name, val):xs)  = setParameterValue (intptr {intEnv = setEnvironmentValue (intEnv intptr) name val}) xs
+setParameterValue intptr [(name, val)] = intptr {intEnv = setEnvironmentValue (intEnv intptr) name (numberValue val)} 
+setParameterValue intptr (x@(name, val):xs)  = setParameterValue (intptr {intEnv = setEnvironmentValue (intEnv intptr) name (numberValue val)}) xs
 
 visitFunctionStatement :: Node -> Interpreter -> Interpreter -> Interpreter 
-visitFunctionStatement stat intptr funcIntptr = setResult (fromJust (currentResult newIntptr)) intptr
+visitFunctionStatement stat intptr funcIntptr = case currentResult newIntptr of 
+  (Just a) -> setResult (fromJust (currentResult newIntptr)) intptr
+  Nothing -> newIntptr
   where 
     newIntptr = visit stat funcIntptr
 
 runResult :: Interpreter -> String -> Interpreter
 runResult inter input 
-  | null input = inter
+  | null input = inter{intError = (Error{hasOccurred = False, errorMessage = []})}
   | otherwise = newInter
   where 
     lexer = Lexer {
@@ -426,6 +465,7 @@ runResult inter input
                           column = 1,
                           line = 0}, 
       currentChar = head input, 
+      lexerError = Error{hasOccurred = False, errorMessage = []},
       tokenList = []}
     tokenLexer = createTokens lexer 
     parser = Parser {
@@ -433,9 +473,11 @@ runResult inter input
       tokenIndex = 1,
       currentToken = head (tokenList tokenLexer),
       currentNode = Empty,
-      file = fileName tokenLexer}
+      file = fileName tokenLexer,
+      errorParser = lexerError tokenLexer}
     nodeTree = parse parser 
-    newInter = visit (currentNode nodeTree) inter
+    checkInter = inter{intError = errorParser nodeTree}
+    newInter = visit (currentNode nodeTree) checkInter
 
 runInterpreter :: Interpreter -> IO ()
 runInterpreter inter = do 
@@ -444,8 +486,14 @@ runInterpreter inter = do
   input <- getLine
 
   let result = runResult inter input
-  printResult (currentResult result)
+  checkResult result 
   runInterpreter result{currentResult = Nothing}
+
+checkResult :: Interpreter -> IO ()
+checkResult inter = do 
+  if  hasOccurred (intError inter)
+  then putStrLn (concat (intersperse "\n" (errorMessage (intError inter)))) 
+  else printResult (currentResult inter)
 
 printResult :: Maybe Number -> IO ()
 printResult a 

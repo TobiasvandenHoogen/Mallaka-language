@@ -12,6 +12,7 @@ data Lexer = Lexer{
     currentLine :: Int,
     currentPosition :: Position,
     currentChar :: Char,
+    lexerError :: Error,
     tokenList :: [Token]}
 
 advancePosition :: Position -> Char -> Position
@@ -33,13 +34,15 @@ advanceLexer lexer =
                         currentPosition = advancePosition (currentPosition lexer) (currentChar lexer), 
                         currentLine = currentLine lexer,
                         currentChar =  head char,
+                        lexerError = lexerError lexer,
                         tokenList = tokenList lexer}
     in result  
 
 
 createTokens :: Lexer -> Lexer
-createTokens lexer = 
-  tokenizer where 
+createTokens lexer 
+  | hasOccurred (lexerError lexer) = lexer
+  | otherwise = tokenizer where 
 
     tokenizer = 
       if currentChar lexer == '\00'
@@ -64,8 +67,10 @@ createTokens lexer =
                 if currentChar checkNextChar == '=' 
                 then addToken (advanceLexer checkNextChar) Token {tokenType = equalOperation definedTypes, val = Nothing, pos = currentPosition lexer }
                 else addToken (advanceLexer lexer) Token {tokenType = assignOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '(' && currentChar checkNextChar == ')' = addToken (advanceLexer checkNextChar) Token {tokenType = nullType definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '(' = addToken (advanceLexer lexer) Token {tokenType = leftParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == ')' = addToken (advanceLexer lexer) Token {tokenType = rightParent definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '\"' = makeString lexer
               | currentChar lexer == '{' = addToken (advanceLexer lexer) Token {tokenType = openParameter definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '}' = addToken (advanceLexer lexer) Token {tokenType = closeParameter definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == ',' = addToken (advanceLexer lexer) Token {tokenType = seperatorParameter definedTypes, val = Nothing, pos = currentPosition lexer}
@@ -84,13 +89,22 @@ createTokens lexer =
                 case currentChar checkNextChar of 
                   '=' ->  addToken (advanceLexer checkNextChar) Token {tokenType = greaterEqOperation definedTypes, val = Nothing, pos = currentPosition lexer }
                   _  -> addToken (advanceLexer lexer) Token {tokenType = greaterOperation definedTypes, val = Nothing, pos = currentPosition lexer }
-              | otherwise = throwError(InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))
+              | otherwise = advanceLexer lexer{lexerError = throwError (lexerError lexer) (InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))}
             checkNextChar = advanceLexer lexer 
 
 
 addToken :: Lexer -> Token -> Lexer
 addToken lexer token = 
   lexer {tokenList = tokenList lexer ++ [token]}
+
+makeString :: Lexer -> Lexer 
+makeString lexer = 
+  makeLetters lexer "" (currentPosition lexer) where 
+    makeLetters :: Lexer -> String -> Position -> Lexer
+    makeLetters lexer string pos 
+      | isDigit(currentChar lexer) || isAlpha(currentChar lexer) || (currentChar lexer == '_') =
+        makeLetters (advanceLexer lexer) (string ++ [currentChar lexer]) pos
+      | otherwise = addToken lexer (getKeyWord string pos)
 
 makeWord :: Lexer -> Lexer 
 makeWord lexer = 
