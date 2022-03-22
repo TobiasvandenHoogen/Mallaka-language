@@ -58,45 +58,50 @@ getVariableName (String a ) = a
 
 getBoolValue :: Value -> Interpreter -> Node -> (Interpreter ,Bool)
 getBoolValue (Bool a) i n = (i, a)
-getBoolValue a i n =  (i{intError = throwError (intError i) (ConditionError(intprFileName i) (pos (getToken n)))}, True) --throwError(ConditionError(intprFileName i) (pos (getToken n)))
+getBoolValue a i n =  (i{intError = throwError (intError i) (ConditionError(intprFileName i) (pos (getToken n)))}, True) 
 
-addValue :: Value -> Value -> Value
-addValue (Int a) (Int b) = Int( a + b)
-addValue (Int a) (Float b) = Float( fromIntegral a + b)
-addValue (Float a) (Int b) = Float( a + fromIntegral b)
-addValue (Float a) (Float b) = Float(a + b)
-addValue (String a) (String b) = String(a ++ b)
-addValue (List a) b = List(a ++ [b])
+addNumber :: Number -> Number -> Interpreter -> Interpreter
+addNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 + val2), numPos = pos1}) intptr
+addNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(fromIntegral val1 + val2), numPos = pos1}) intptr
+addNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Float(val1 + fromIntegral val2), numPos = pos1}) intptr
+addNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(val1 + val2), numPos = pos1}) intptr
+addNumber (Number (String val1) pos1) (Number (String val2) pos2) intptr = setResult (Number {numberValue = String(val1 ++ val2), numPos = pos1}) intptr
+addNumber (Number (List val1) pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = List(val1 ++ [val2]), numPos = pos1}) intptr
+addNumber (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (plusOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-subValue :: Value -> Value -> Value
-subValue (Int a) (Int b) = Int( a - b)
-subValue (Int a) (Float b) = Float( fromIntegral a - b)
-subValue (Float a) (Int b) = Float( a - fromIntegral b)
-subValue (Float a) (Float b) = Float(a - b)
-subValue (List a) (Int b) 
-  | b < 0 && (length a + b) >= 0 = List(take (length a + b) a ++  drop (length a + b + 1) a)
-  | length a > b = List(take b a ++ drop (b + 1) a)
-  | otherwise = List(a)
+subNumber :: Number -> Number -> Interpreter -> Interpreter
+subNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 - val2), numPos = pos1}) intptr
+subNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(fromIntegral val1 - val2), numPos = pos1}) intptr
+subNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Float(val1 - fromIntegral val2), numPos = pos1}) intptr
+subNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(val1 - val2), numPos = pos1}) intptr
+subNumber (Number (List val1) pos1) (Number (Int val2) pos2) intptr 
+  | val2 < 0 && (length val1 + val2) >= 0 = setResult (Number {numberValue = List(take (length val1 + val2) val1 ++ drop (length val1 + val2 + 1) val1), numPos = pos1}) intptr
+  | val2 >= 0 && length val1 > val2 = setResult (Number {numberValue = List(take val2 val1 ++ drop (val2 + 1) val1) , numPos = pos1}) intptr 
+  | otherwise = intptr{intError = throwError (intError intptr) (OutOfBoundsIndex (intprFileName intptr) (show val2) (fromJust pos1))}
+subNumber  (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (minusOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-mulValue :: Value -> Value -> Value
-mulValue (Int a) (Int b) = Int( a * b)
-mulValue (Int a) (Float b) = Float( fromIntegral a * b)
-mulValue (Float a) (Int b) = Float( a * fromIntegral b)
-mulValue (Float a) (Float b) = Float(a * b)
-mulValue (String a) (Int b) = String(concat (replicate b a))
-mulValue (List a) (List b) = List (a ++ b)
+mulNumber :: Number -> Number -> Interpreter -> Interpreter
+mulNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 * val2), numPos = pos1}) intptr
+mulNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(fromIntegral val1 * val2), numPos = pos1}) intptr
+mulNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Float(val1 * fromIntegral val2), numPos = pos1}) intptr
+mulNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(val1 * val2), numPos = pos1}) intptr
+mulNumber (Number (String val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = String(concat (replicate val2 val1)), numPos = pos1}) intptr
+mulNumber (Number (List val1) pos1) (Number (List val2) pos2) intptr = setResult (Number {numberValue = List(val1 ++ val2), numPos = pos1}) intptr
+mulNumber (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (multiplyOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-divValue :: Value -> Value -> Value
-divValue (Int a) (Int b) = Int( a `div` b)
-divValue (Int a) (Float b) = Float( fromIntegral a / b)
-divValue (Float a) (Int b) = Float( a / fromIntegral b)
-divValue (Float a) (Float b) = Float(a / b)
+divNumber :: Number -> Number -> Interpreter -> Interpreter
+divNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 `div` val2), numPos = pos1}) intptr
+divNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(fromIntegral val1 / val2), numPos = pos1}) intptr
+divNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Float(val1 / fromIntegral val2), numPos = pos1}) intptr
+divNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(val1 / val2), numPos = pos1}) intptr
+divNumber  (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (divisionOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-modValue :: Value -> Value -> Value
-modValue (Int a) (Int b) = Int( a `mod` b)
-modValue (Int a) (Float b) = Float( mod' (fromIntegral a) b)
-modValue (Float a) (Int b) = Float( mod' a (fromIntegral b))
-modValue (Float a) (Float b) = Float( mod' a b)
+modNumber :: Number -> Number -> Interpreter -> Interpreter
+modNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 `mod` val2), numPos = pos1}) intptr
+modNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float( mod' (fromIntegral val1) val2), numPos = pos1}) intptr
+modNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Float( mod' val1 (fromIntegral val2)), numPos = pos1}) intptr
+modNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float( mod' val1 val2), numPos = pos1}) intptr
+modNumber  (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (modOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
 powValue :: Value -> Value -> Value
 powValue (Int a) (Int b) = Int( a ^ b)
@@ -104,157 +109,100 @@ powValue (Int a) (Float b) = Float( fromIntegral a ** b)
 powValue (Float a) (Int b) = Float( a ** fromIntegral b)
 powValue (Float a) (Float b) = Float(a ** b)
 
-sqrootValue :: Value -> Value 
-sqrootValue (Int a) = Int(round (sqrt (fromIntegral a)))
-sqrootValue (Float a) = Float( sqrt a)
+powNumber :: Number -> Number -> Interpreter -> Interpreter
+powNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 ^ val2), numPos = pos1}) intptr
+powNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(fromIntegral val1 ** val2), numPos = pos1}) intptr
+powNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Float(val1 ** fromIntegral val2), numPos = pos1}) intptr
+powNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(val1 ** val2), numPos = pos1}) intptr
+powNumber  (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (powerOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-indexValue :: Value -> Value -> Value
-indexValue (List a) (Int b) 
-  | b < 0 && (length a + b) >= 0 = a !! (length a - b)
-  | length a > b = a !! b
-  | otherwise = List(a)
+sqrootNumber :: Number -> Interpreter -> Interpreter
+sqrootNumber (Number (Int val1) pos1) intptr = setResult (Number {numberValue = Int(round (sqrt (fromIntegral val1))), numPos = pos1}) intptr
+sqrootNumber (Number (Float val1) pos1) intptr = setResult (Number {numberValue = Float( sqrt val1), numPos = pos1}) intptr
+sqrootNumber  (Number val1 pos1) intptr = intptr{intError = throwError (intError intptr) (InvalidSyntaxError (intprFileName intptr) ("\"integer or float\"") (printValueType val1) (fromJust pos1))}
 
-notValue :: Value -> Value 
-notValue (Int a) = Int(complement a)
-notValue (Float a) = Int(complement (round a))
-notValue (Bool a) = Bool(not a)
+indexNumber :: Number -> Number -> Interpreter -> Interpreter
+indexNumber (Number (List val1) pos1) (Number (Int val2) pos2) intptr 
+  | val2 < 0 && (length val1 + val2) >= 0 = setResult (Number {numberValue = (val1 !! (length val1 - val2)), numPos = pos1}) intptr 
+  | val2 >= 0 && length val1 > val2 = setResult (Number {numberValue = (val1 !! val2), numPos = pos1}) intptr 
+  | otherwise = intptr{intError = throwError (intError intptr) (OutOfBoundsIndex (intprFileName intptr) (show val2) (fromJust pos1))}
+indexNumber  (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (indexOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-andValue :: Value -> Value -> Value 
-andValue (Int a) (Int b) = Int(a .&. b)
-andValue (Float a) (Int b) = Int(round a .&. b)
-andValue (Int a) (Float b) = Int(a .&. round b)
-andValue (Float a) (Float b) = Int(round a .&. round b)
-andValue (Bool a) (Bool b) = Bool(a && b)
+notNumber :: Number -> Interpreter -> Interpreter
+notNumber (Number (Int val1) pos1) intptr = setResult (Number {numberValue = Int(complement val1), numPos = pos1}) intptr
+notNumber (Number (Float val1) pos1) intptr = setResult (Number {numberValue = Int(complement (round val1)), numPos = pos1}) intptr
+notNumber (Number (Bool val1) pos1) intptr = setResult (Number {numberValue = Bool(not val1), numPos = pos1}) intptr
+notNumber (Number val1 pos1) intptr = intptr{intError = throwError (intError intptr)  (InvalidSyntaxError (intprFileName intptr) ("\"integer, float or boolean\"") (printValueType val1) (fromJust pos1))}
 
-orValue :: Value -> Value -> Value 
-orValue (Int a) (Int b) = Int(a .|. b)
-orValue (Float a) (Int b) = Int(round a .|. b)
-orValue (Int a) (Float b) = Int(a .|. round b)
-orValue (Float a) (Float b) = Int(round a .|. round b)
-orValue (Bool a) (Bool b) = Bool(a || b)
+andNumber :: Number -> Number -> Interpreter -> Interpreter
+andNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 .&. val2), numPos = pos1}) intptr
+andNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(round val1 .&. val2), numPos = pos1}) intptr
+andNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Int(val1 .&. round val2), numPos = pos1}) intptr
+andNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Int(round val1 .&. round val2), numPos = pos1}) intptr
+andNumber (Number (Bool val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 && val2), numPos = pos1}) intptr
+andNumber (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (andOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-eqComValue :: Value -> Value -> Value 
-eqComValue (Int a) (Float b) = Bool( fromIntegral a == b)
-eqComValue (Float a) (Int b) = Bool( a == fromIntegral b)
-eqComValue (Bool a) (Int b) = Bool(fromEnum a == b)
-eqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) == b)
-eqComValue (Int a) (Bool b) = Bool(a == fromEnum b)
-eqComValue (Float a) (Bool b) = Bool(a == fromIntegral(fromEnum b))
-eqComValue a b = Bool(a == b)
+orNumber :: Number -> Number -> Interpreter -> Interpreter
+orNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(val1 .|. val2), numPos = pos1}) intptr
+orNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Int(round val1 .|. val2), numPos = pos1}) intptr
+orNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Int(val1 .|. round val2), numPos = pos1}) intptr
+orNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Int(round val1 .|. round val2), numPos = pos1}) intptr
+orNumber (Number (Bool val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 || val2), numPos = pos1}) intptr
+orNumber (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (orOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
-neqComValue :: Value -> Value -> Value 
-neqComValue (Int a) (Float b) = Bool( fromIntegral a /= b)
-neqComValue (Float a) (Int b) = Bool( a /= fromIntegral b)
-neqComValue (Bool a) (Int b) = Bool(fromEnum a /= b)
-neqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) /= b)
-neqComValue (Int a) (Bool b) = Bool(a /= fromEnum b)
-neqComValue (Float a) (Bool b) = Bool(a /= fromIntegral(fromEnum b))
-neqComValue a b = Bool(a /= b)
+eqNumber :: Number -> Number -> Interpreter -> Interpreter
+eqNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue =  Bool( fromIntegral val1 == val2), numPos = pos1}) intptr
+eqNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool( val1 == fromIntegral val2), numPos = pos1}) intptr
+eqNumber (Number (Bool val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool(fromEnum val1 == val2), numPos = pos1}) intptr
+eqNumber (Number (Bool val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Bool(fromIntegral(fromEnum val1) == val2), numPos = pos1}) intptr
+eqNumber (Number (Int val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 == fromEnum val2), numPos = pos1}) intptr
+eqNumber (Number (Float val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 == fromIntegral(fromEnum val2)), numPos = pos1}) intptr
+eqNumber (Number val1 pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = Bool(val1 == val2), numPos = pos1}) intptr
 
-greaterComValue :: Value -> Value -> Value 
-greaterComValue (Int a) (Float b) = Bool( fromIntegral a > b)
-greaterComValue (Float a) (Int b) = Bool( a > fromIntegral b)
-greaterComValue (Bool a) (Int b) = Bool(fromEnum a > b)
-greaterComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) > b)
-greaterComValue (Int a) (Bool b) = Bool(a > fromEnum b)
-greaterComValue (Float a) (Bool b) = Bool(a > fromIntegral(fromEnum b))
-greaterComValue a b = Bool(a > b)
+neqNumber :: Number -> Number -> Interpreter -> Interpreter
+neqNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue =  Bool( fromIntegral val1 /= val2), numPos = pos1}) intptr
+neqNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool( val1 /= fromIntegral val2), numPos = pos1}) intptr
+neqNumber (Number (Bool val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool(fromEnum val1 /= val2), numPos = pos1}) intptr
+neqNumber (Number (Bool val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Bool(fromIntegral(fromEnum val1) /= val2), numPos = pos1}) intptr
+neqNumber (Number (Int val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 /= fromEnum val2), numPos = pos1}) intptr
+neqNumber (Number (Float val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 /= fromIntegral(fromEnum val2)), numPos = pos1}) intptr
+neqNumber (Number val1 pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = Bool(val1 /= val2), numPos = pos1}) intptr
 
-lessComValue :: Value -> Value -> Value 
-lessComValue (Int a) (Float b) = Bool( fromIntegral a < b)
-lessComValue (Float a) (Int b) = Bool( a < fromIntegral b)
-lessComValue (Bool a) (Int b) = Bool(fromEnum a < b)
-lessComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) < b)
-lessComValue (Int a) (Bool b) = Bool(a < fromEnum b)
-lessComValue (Float a) (Bool b) = Bool(a < fromIntegral(fromEnum b))
-lessComValue a b = Bool(a < b)
+greaterNumber :: Number -> Number -> Interpreter -> Interpreter
+greaterNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue =  Bool( fromIntegral val1 > val2), numPos = pos1}) intptr
+greaterNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool( val1 > fromIntegral val2), numPos = pos1}) intptr
+greaterNumber (Number (Bool val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool(fromEnum val1 > val2), numPos = pos1}) intptr
+greaterNumber (Number (Bool val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Bool(fromIntegral(fromEnum val1) > val2), numPos = pos1}) intptr
+greaterNumber (Number (Int val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 > fromEnum val2), numPos = pos1}) intptr
+greaterNumber (Number (Float val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 > fromIntegral(fromEnum val2)), numPos = pos1}) intptr
+greaterNumber (Number val1 pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = Bool(val1 > val2), numPos = pos1}) intptr
 
-greaterEqComValue :: Value -> Value -> Value 
-greaterEqComValue (Int a) (Float b) = Bool( fromIntegral a >= b)
-greaterEqComValue (Float a) (Int b) = Bool( a >= fromIntegral b)
-greaterEqComValue (Bool a) (Int b) = Bool(fromEnum a >= b)
-greaterEqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) >= b)
-greaterEqComValue (Int a) (Bool b) = Bool(a >= fromEnum b)
-greaterEqComValue (Float a) (Bool b) = Bool(a >= fromIntegral(fromEnum b))
-greaterEqComValue a b = Bool(a >= b)
+lessNumber :: Number -> Number -> Interpreter -> Interpreter
+lessNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue =  Bool( fromIntegral val1 < val2), numPos = pos1}) intptr
+lessNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool( val1 < fromIntegral val2), numPos = pos1}) intptr
+lessNumber (Number (Bool val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool(fromEnum val1 < val2), numPos = pos1}) intptr
+lessNumber (Number (Bool val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Bool(fromIntegral(fromEnum val1) < val2), numPos = pos1}) intptr
+lessNumber (Number (Int val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 < fromEnum val2), numPos = pos1}) intptr
+lessNumber (Number (Float val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 < fromIntegral(fromEnum val2)), numPos = pos1}) intptr
+lessNumber (Number val1 pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = Bool(val1 < val2), numPos = pos1}) intptr
 
-lessEqComValue :: Value -> Value -> Value 
-lessEqComValue (Int a) (Float b) = Bool( fromIntegral a <= b)
-lessEqComValue (Float a) (Int b) = Bool( a <= fromIntegral b)
-lessEqComValue (Bool a) (Int b) = Bool(fromEnum a <= b)
-lessEqComValue (Bool a) (Float b) = Bool(fromIntegral(fromEnum a) <= b)
-lessEqComValue (Int a) (Bool b) = Bool(a <= fromEnum b)
-lessEqComValue (Float a) (Bool b) = Bool(a <= fromIntegral(fromEnum b))
-lessEqComValue a b = Bool(a <= b)
+greaterEqNumber :: Number -> Number -> Interpreter -> Interpreter
+greaterEqNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue =  Bool( fromIntegral val1 >= val2), numPos = pos1}) intptr
+greaterEqNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool( val1 >= fromIntegral val2), numPos = pos1}) intptr
+greaterEqNumber (Number (Bool val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool(fromEnum val1 >= val2), numPos = pos1}) intptr
+greaterEqNumber (Number (Bool val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Bool(fromIntegral(fromEnum val1) >= val2), numPos = pos1}) intptr
+greaterEqNumber (Number (Int val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 >= fromEnum val2), numPos = pos1}) intptr
+greaterEqNumber (Number (Float val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 >= fromIntegral(fromEnum val2)), numPos = pos1}) intptr
+greaterEqNumber (Number val1 pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = Bool(val1 >= val2), numPos = pos1}) intptr
 
-addNumber :: Number -> Number -> Number 
-addNumber num1 num2 = 
-  Number{numberValue = addValue(numberValue num1) (numberValue num2), numPos = Nothing}
-
-subNumber :: Number -> Number -> Number 
-subNumber num1 num2 = 
-  Number{numberValue = subValue(numberValue num1) (numberValue num2), numPos = Nothing}
-
-mulNumber :: Number -> Number -> Number 
-mulNumber num1 num2 = 
-  Number{numberValue = mulValue(numberValue num1) (numberValue num2), numPos = Nothing} 
-
-divNumber :: Number -> Number -> Number 
-divNumber num1 num2 = 
-  Number{numberValue = divValue(numberValue num1) (numberValue num2), numPos = Nothing}
-
-modNumber :: Number -> Number -> Number 
-modNumber num1 num2 = 
-  Number{numberValue = modValue(numberValue num1) (numberValue num2), numPos = Nothing}
-
-powNumber :: Number -> Number -> Number 
-powNumber num1 num2 = 
-  Number{numberValue = powValue(numberValue num1) (numberValue num2), numPos = Nothing}
-
-sqrootNumber :: Number -> Number 
-sqrootNumber num1 = 
-  Number{numberValue = sqrootValue(numberValue num1), numPos = Nothing }
-
-indexNumber :: Number -> Number -> Number 
-indexNumber num1 num2 = 
-  Number{numberValue = indexValue(numberValue num1) (numberValue num2), numPos = Nothing}
-
-notNumber :: Number -> Number 
-notNumber num1 = 
-  Number{numberValue = notValue(numberValue num1), numPos = Nothing }
-
-andNumber :: Number -> Number -> Number 
-andNumber num1 num2 = 
-  Number{numberValue = andValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
-orNumber :: Number -> Number -> Number 
-orNumber num1 num2 = 
-  Number{numberValue = orValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
-eqNumber :: Number -> Number -> Number 
-eqNumber num1 num2 = 
-  Number{numberValue = eqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
-neqNumber :: Number -> Number -> Number 
-neqNumber num1 num2 = 
-  Number{numberValue = neqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
-greaterNumber :: Number -> Number -> Number 
-greaterNumber num1 num2 = 
-  Number{numberValue = greaterComValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
-lessNumber :: Number -> Number -> Number 
-lessNumber num1 num2 = 
-  Number{numberValue = lessComValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
-greaterEqNumber :: Number -> Number -> Number 
-greaterEqNumber num1 num2 = 
-  Number{numberValue = greaterEqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
-lessEqNumber :: Number -> Number -> Number 
-lessEqNumber num1 num2 = 
-  Number{numberValue = lessEqComValue(numberValue num1) (numberValue num2), numPos = Nothing }
-
+lessEqNumber :: Number -> Number -> Interpreter -> Interpreter
+lessEqNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue =  Bool( fromIntegral val1 <= val2), numPos = pos1}) intptr
+lessEqNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool( val1 <= fromIntegral val2), numPos = pos1}) intptr
+lessEqNumber (Number (Bool val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Bool(fromEnum val1 <= val2), numPos = pos1}) intptr
+lessEqNumber (Number (Bool val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Bool(fromIntegral(fromEnum val1) <= val2), numPos = pos1}) intptr
+lessEqNumber (Number (Int val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 <= fromEnum val2), numPos = pos1}) intptr
+lessEqNumber (Number (Float val1) pos1) (Number (Bool val2) pos2) intptr = setResult (Number {numberValue = Bool(val1 <= fromIntegral(fromEnum val2)), numPos = pos1}) intptr
+lessEqNumber (Number val1 pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = Bool(val1 <= val2), numPos = pos1}) intptr
 
 isZero :: Value-> Bool
 isZero (Int a) 
@@ -332,23 +280,23 @@ visitVarAssignNode node@(Tree left tok _ right) intptr
 visitBinaryOpNode :: Node -> Interpreter -> Interpreter
 visitBinaryOpNode node@(Tree left tok _ right) intptr
   | hasOccurred (intError visitRight) = intptr{intError = (intError visitRight)}
-  | tokenType tok == sqrootOperation definedTypes =  setResult (sqrootNumber num2) intptr
+  | tokenType tok == sqrootOperation definedTypes =  sqrootNumber num2 intptr
   | hasOccurred (intError visitLeft) = intptr{intError = (intError visitLeft)}
-  | tokenType tok == plusOperation definedTypes = setResult (addNumber num1 num2) intptr
-  | tokenType tok == minusOperation definedTypes = setResult (subNumber num1 num2) intptr
-  | tokenType tok == multiplyOperation definedTypes = setResult (mulNumber num1 num2) intptr
+  | tokenType tok == plusOperation definedTypes = addNumber num1 num2 intptr
+  | tokenType tok == minusOperation definedTypes = subNumber num1 num2 intptr
+  | tokenType tok == multiplyOperation definedTypes = mulNumber num1 num2 intptr
   | tokenType tok == divisionOperation definedTypes = numCheck
-  | tokenType tok == modOperation definedTypes = setResult (modNumber num1 num2) intptr
-  | tokenType tok == powerOperation definedTypes = setResult (powNumber num1 num2) intptr
-  | tokenType tok == indexOperation definedTypes = setResult (indexNumber num1 num2) intptr
-  | tokenType tok == andOperation definedTypes = setResult (andNumber num1 num2) intptr
-  | tokenType tok == orOperation definedTypes = setResult (orNumber num1 num2) intptr
-  | tokenType tok == equalOperation definedTypes = setResult (eqNumber num1 num2) intptr
-  | tokenType tok == notEqualOperation definedTypes = setResult (neqNumber num1 num2) intptr
-  | tokenType tok == greaterOperation definedTypes = setResult (greaterNumber num1 num2) intptr
-  | tokenType tok == lessOperation definedTypes = setResult (lessNumber num1 num2) intptr
-  | tokenType tok == greaterEqOperation definedTypes = setResult (greaterEqNumber num1 num2) intptr
-  | tokenType tok == lessEqOperation definedTypes = setResult (lessEqNumber num1 num2) intptr
+  | tokenType tok == modOperation definedTypes = modNumber num1 num2 intptr
+  | tokenType tok == powerOperation definedTypes = powNumber num1 num2 intptr
+  | tokenType tok == indexOperation definedTypes = indexNumber num1 num2 intptr
+  | tokenType tok == andOperation definedTypes = andNumber num1 num2 intptr
+  | tokenType tok == orOperation definedTypes = orNumber num1 num2 intptr
+  | tokenType tok == equalOperation definedTypes = eqNumber num1 num2 intptr
+  | tokenType tok == notEqualOperation definedTypes = neqNumber num1 num2 intptr
+  | tokenType tok == greaterOperation definedTypes = greaterNumber num1 num2 intptr
+  | tokenType tok == lessOperation definedTypes = lessNumber num1 num2 intptr
+  | tokenType tok == greaterEqOperation definedTypes = greaterEqNumber num1 num2 intptr
+  | tokenType tok == lessEqOperation definedTypes = lessEqNumber num1 num2 intptr
   where 
     visitLeft = visit left intptr
     visitRight = visit right intptr
@@ -357,13 +305,13 @@ visitBinaryOpNode node@(Tree left tok _ right) intptr
     numCheck = 
       if isZero (numberValue num2)
       then intptr{intError = throwError (intError intptr) (DivisionByZeroError (intprFileName intptr) (pos tok))}
-      else setResult (divNumber num1 num2) intptr
+      else divNumber num1 num2 intptr
 
 visitUnaryNode :: Node -> Interpreter -> Interpreter
 visitUnaryNode node@(Branch _ _ right) intptr
   | hasOccurred (intError visitValue) = intptr{intError = intError visitValue} 
-  | tokenType tok == minusOperation definedTypes = setResult (mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing}) intptr
-  | tokenType tok == notOperation definedTypes = setResult (notNumber num1) intptr
+  | tokenType tok == minusOperation definedTypes = mulNumber num1 Number{numberValue = Int(-1), numPos = Nothing} intptr
+  | tokenType tok == notOperation definedTypes = notNumber num1 intptr
   | otherwise = setResult num1 intptr
   where 
     visitValue = visit right intptr
@@ -422,7 +370,7 @@ runLoopNode fromValue toValue withValue statementNode intptr
   | numberValue fromValue == numberValue toValue  = intptr
   | otherwise = runLoopNode newIndex toValue withValue statementNode nextIteration
   where 
-    newIndex = Number{numberValue = addValue (numberValue fromValue) (numberValue withValue), numPos = Nothing}
+    newIndex = fromJust (currentResult(addNumber fromValue withValue intptr))
     nextIteration = visit statementNode intptr
 
 

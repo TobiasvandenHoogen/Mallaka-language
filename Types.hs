@@ -63,6 +63,7 @@ data Types = Types{intType :: String,
         stringType :: String,
         boolType :: String,
         functionType :: String,
+        listType :: String,
         trueBool :: String,
         falseBool :: String,
         nullType :: String,
@@ -116,6 +117,7 @@ definedTypes = Types{intType = "integer",
                  stringType = "string",
                  boolType = "boolean",
                  functionType = "function",
+                 listType = "list",
                  trueBool = "True",
                  falseBool = "False",
                  nullType = "null",
@@ -178,6 +180,7 @@ printValueType (Float a) = floatType definedTypes
 printValueType (Bool a) = boolType definedTypes
 printValueType (String a) = stringType definedTypes
 printValueType (Func a) = functionType definedTypes
+printValueType (List a) = listType definedTypes
 
 getNodeType :: Node -> NodeType
 getNodeType (Leaf _ typ) = typ
