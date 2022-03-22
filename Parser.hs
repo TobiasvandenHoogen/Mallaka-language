@@ -42,6 +42,19 @@ statementExpression parser
   where 
     nextCharacter = advanceParser parser
     statement = expression (advanceParser parser) Empty
+
+listExpression :: Parser -> Parser 
+listExpression parser 
+  | tokenType (currentToken parser) == closeList definedTypes = advanceParser parser
+  | tokenType (currentToken getElement) == seperatorParameter definedTypes = nextElement{currentNode = elementTree}
+  | tokenType (currentToken getElement) == closeList definedTypes = (advanceParser getElement){currentNode = endOfElementTree}
+  | otherwise = advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) (closeList definedTypes) ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))}
+  where 
+    getElement = (atom (parser))
+    elementTree = Tree (currentNode getElement) (currentToken getElement) NoType (currentNode nextElement)
+    nextElement = listExpression (advanceParser getElement)
+    endOfElementTree = Tree (currentNode getElement) (currentToken getElement)  NoType Empty
+
   
 
 ifExpression :: Parser -> Parser 
@@ -169,6 +182,8 @@ atom parser
     if tokenType (currentToken expressionParser) == rightParent definedTypes
     then advanceParser expressionParser 
     else advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) ")" ("\"" ++ tokenType (currentToken expressionParser) ++ "\"") (pos (currentToken expressionParser)))}
+  | tokenType (currentToken parser) == openList definedTypes = 
+    createList{currentNode = Branch (currentToken parser) ListNode (currentNode createList)} 
   | tokenType (currentToken parser) == ifOperation definedTypes = 
     ifExpression parser 
   | tokenType (currentToken parser) == loopOperation definedTypes = 
@@ -183,6 +198,8 @@ atom parser
     advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) "value" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))}
   where 
     nextParser = advanceParser parser
+    createList = listExpression nextParser
+    listNode = currentNode createList
     expressionParser = expression (advanceParser parser) Empty
 
 factor :: Parser -> Parser 
@@ -197,11 +214,13 @@ factor parser
   
 exponential :: Parser -> Node -> Parser 
 exponential parser node 
+  | tokenType (currentToken parser) == indexOperation definedTypes  =
+      term returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | tokenType (currentToken parser) == sqrootOperation definedTypes  =
-    term returnParser (Tree Empty (currentToken parser)  BinaryOpNode (currentNode returnParser))
+    exponential returnParser (Tree Empty (currentToken parser)  BinaryOpNode (currentNode returnParser))
   | node == Empty = exponential nextExpressionParser (currentNode nextExpressionParser)
   | tokenType (currentToken parser) == powerOperation definedTypes  =
-      term returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
+      exponential returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
     nextExpressionParser = factor parser 

@@ -2,7 +2,7 @@ module Interpreter where
 import System.IO
 import Data.Maybe
 import Data.Fixed
-import Data.Map hiding (null, map, foldr)
+import Data.Map hiding (null, map, foldr, drop, take)
 import Data.Bits 
 import Data.List hiding (lookup, insert, delete)
 import Prelude hiding (lookup)
@@ -66,12 +66,17 @@ addValue (Int a) (Float b) = Float( fromIntegral a + b)
 addValue (Float a) (Int b) = Float( a + fromIntegral b)
 addValue (Float a) (Float b) = Float(a + b)
 addValue (String a) (String b) = String(a ++ b)
+addValue (List a) b = List(a ++ [b])
 
 subValue :: Value -> Value -> Value
 subValue (Int a) (Int b) = Int( a - b)
 subValue (Int a) (Float b) = Float( fromIntegral a - b)
 subValue (Float a) (Int b) = Float( a - fromIntegral b)
 subValue (Float a) (Float b) = Float(a - b)
+subValue (List a) (Int b) 
+  | b < 0 && (length a + b) >= 0 = List(take (length a + b) a ++  drop (length a + b + 1) a)
+  | length a > b = List(take b a ++ drop (b + 1) a)
+  | otherwise = List(a)
 
 mulValue :: Value -> Value -> Value
 mulValue (Int a) (Int b) = Int( a * b)
@@ -79,6 +84,7 @@ mulValue (Int a) (Float b) = Float( fromIntegral a * b)
 mulValue (Float a) (Int b) = Float( a * fromIntegral b)
 mulValue (Float a) (Float b) = Float(a * b)
 mulValue (String a) (Int b) = String(concat (replicate b a))
+mulValue (List a) (List b) = List (a ++ b)
 
 divValue :: Value -> Value -> Value
 divValue (Int a) (Int b) = Int( a `div` b)
@@ -101,6 +107,12 @@ powValue (Float a) (Float b) = Float(a ** b)
 sqrootValue :: Value -> Value 
 sqrootValue (Int a) = Int(round (sqrt (fromIntegral a)))
 sqrootValue (Float a) = Float( sqrt a)
+
+indexValue :: Value -> Value -> Value
+indexValue (List a) (Int b) 
+  | b < 0 && (length a + b) >= 0 = a !! (length a - b)
+  | length a > b = a !! b
+  | otherwise = List(a)
 
 notValue :: Value -> Value 
 notValue (Int a) = Int(complement a)
@@ -203,6 +215,10 @@ sqrootNumber :: Number -> Number
 sqrootNumber num1 = 
   Number{numberValue = sqrootValue(numberValue num1), numPos = Nothing }
 
+indexNumber :: Number -> Number -> Number 
+indexNumber num1 num2 = 
+  Number{numberValue = indexValue(numberValue num1) (numberValue num2), numPos = Nothing}
+
 notNumber :: Number -> Number 
 notNumber num1 = 
   Number{numberValue = notValue(numberValue num1), numPos = Nothing }
@@ -255,6 +271,12 @@ zipMapNodeTree f a l@(Leaf _ _)  c = [(head a, fromJust(currentResult (f l c)))]
 zipMapNodeTree f a b@(Branch _ _ r1) c = [(head a, fromJust(currentResult (f b c)))] ++ zipMapNodeTree f (tail a) r1 c  
 zipMapNodeTree f a tr@(Tree l1 _ _ r1) c = [(head a, fromJust(currentResult (f l1 c)))] ++ zipMapNodeTree f (tail a) r1 c 
 
+mapVisit :: (Interpreter -> b) -> Node -> Interpreter -> [b]
+mapVisit f (Empty) intptr = []
+mapVisit f (Leaf tok typ) intptr = []
+mapVisit f (Branch tok typ r1) intptr = [(f (visit r1 intptr))] 
+mapVisit f (Tree l1 tok typ r1) intptr = [(f (visit l1 intptr))] ++ (mapVisit f r1 intptr)  
+
 setResult :: Number -> Interpreter -> Interpreter
 setResult num inter =
   inter{currentResult = Just num}
@@ -272,6 +294,7 @@ visit node intptr
   | typ == UntilNode = visitUntilNode node intptr
   | typ == FunctionAssignNode = visitCreateFunctionNode node intptr
   | typ == FunctionRunNode = visitRunFunctionNode node intptr
+  | typ == ListNode = visitListNode node intptr
   | otherwise = error (show node)
   where 
     typ = getNodeType node
@@ -317,6 +340,7 @@ visitBinaryOpNode node@(Tree left tok _ right) intptr
   | tokenType tok == divisionOperation definedTypes = numCheck
   | tokenType tok == modOperation definedTypes = setResult (modNumber num1 num2) intptr
   | tokenType tok == powerOperation definedTypes = setResult (powNumber num1 num2) intptr
+  | tokenType tok == indexOperation definedTypes = setResult (indexNumber num1 num2) intptr
   | tokenType tok == andOperation definedTypes = setResult (andNumber num1 num2) intptr
   | tokenType tok == orOperation definedTypes = setResult (orNumber num1 num2) intptr
   | tokenType tok == equalOperation definedTypes = setResult (eqNumber num1 num2) intptr
@@ -428,6 +452,12 @@ visitCreateParameterNode Empty = []
 checkString :: Value -> String
 checkString (String a) = a 
 
+visitListNode :: Node -> Interpreter -> Interpreter
+visitListNode (Branch tok typ r1) intptr = intptr{ currentResult = Just Number{numberValue = List getValues, numPos = Nothing}}
+  where
+    getValues = mapVisit (numberValue . fromJust . currentResult) r1 intptr 
+    
+ 
 visitRunFunctionNode :: Node -> Interpreter -> Interpreter
 visitRunFunctionNode node@(Tree l1 _ _ r1) intptr = case getEnvironmentValue (intEnv intptr) funcName of 
   Just (Func a) -> visitFunctionStatement (statement a) intptr (visitRunParameters r1 (parameters a) intptr)

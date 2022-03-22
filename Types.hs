@@ -12,8 +12,11 @@ data Value = Int Int |
   Float Float |
   Bool Bool |
   String String |
-  Func Function 
+  Func Function |
+  List List 
   deriving ( Ord, Eq)
+
+type List = [Value]
 
 data Position = Position {index :: Int,
   line :: Int,
@@ -31,7 +34,8 @@ data NodeType =
   LoopNode |
   UntilNode |
   FunctionAssignNode |
-  FunctionRunNode
+  FunctionRunNode |
+  ListNode
   deriving (Show, Ord, Eq) 
 
 data Node = Empty | Leaf Token NodeType | Branch Token NodeType Node | Tree Node Token NodeType Node
@@ -46,6 +50,7 @@ instance Show Value where
   show (Bool a) = show a 
   show (String a) = a 
   show (Func a) = (show a)
+  show (List a) = (show a)
 
 data Function = Function{
   parameters :: [String],
@@ -70,6 +75,9 @@ data Types = Types{intType :: String,
         sqrootOperation :: String, 
         assignOperation :: String,
         modOperation :: String,
+        indexOperation :: String,
+        openList :: String,
+        closeList :: String,
         leftParent :: String,
         rightParent :: String,
         stringComma :: String,
@@ -120,8 +128,11 @@ definedTypes = Types{intType = "integer",
                  powerOperation = "^",
                  sqrootOperation = "carrot",
                  assignOperation = "=",
+                 indexOperation = "$",
                  leftParent = "(",
                  rightParent = ")",
+                 openList = "[",
+                 closeList = "]",
                  stringComma = "\"",
                  andOperation = "&",
                  orOperation = "|",

@@ -64,6 +64,7 @@ createTokens lexer
               | currentChar lexer == '/' = addToken (advanceLexer lexer) Token {tokenType = divisionOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '%' = addToken (advanceLexer lexer) Token {tokenType = modOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '^' = addToken (advanceLexer lexer) Token {tokenType = powerOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '$' = addToken (advanceLexer lexer) Token {tokenType = indexOperation definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '=' =
                 if currentChar checkNextChar == '=' 
                 then addToken (advanceLexer checkNextChar) Token {tokenType = equalOperation definedTypes, val = Nothing, pos = currentPosition lexer }
@@ -71,6 +72,8 @@ createTokens lexer
               | currentChar lexer == '(' && currentChar checkNextChar == ')' = addToken (advanceLexer checkNextChar) Token {tokenType = nullType definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '(' = addToken (advanceLexer lexer) Token {tokenType = leftParent definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == ')' = addToken (advanceLexer lexer) Token {tokenType = rightParent definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == '[' = addToken (advanceLexer lexer) Token {tokenType = openList definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == ']' = addToken (advanceLexer lexer) Token {tokenType = closeList definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '\"' = makeString lexer
               | currentChar lexer == '{' = addToken (advanceLexer lexer) Token {tokenType = openParameter definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '}' = addToken (advanceLexer lexer) Token {tokenType = closeParameter definedTypes, val = Nothing, pos = currentPosition lexer }
