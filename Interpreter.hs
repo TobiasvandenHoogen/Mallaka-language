@@ -230,8 +230,9 @@ setResult num inter =
   inter{currentResult = Just num}
 
 visit :: Node -> Interpreter -> Interpreter
-visit node intptr
+visit node intptr  
   | hasOccurred (intError intptr) = intptr 
+  | typ == SeperatorNode = visitStatement node intptr 
   | typ == NumberNode = visitNumberNode node intptr
   | typ == VarAccessNode = visitVarAccessNode node intptr
   | typ == VarAssignNode = visitVarAssignNode node intptr
@@ -318,6 +319,11 @@ visitUnaryNode node@(Branch _ _ right) intptr
     num1 = fromJust(currentResult visitValue)
     tok = getToken node
 
+visitStatement :: Node -> Interpreter -> Interpreter
+visitStatement Empty intptr = intptr 
+visitStatement (Tree left tok typ right) intptr = visit right (visit left intptr) 
+visitStatement node intptr = error (show node)
+
 visitIfNode :: Node -> Interpreter -> Interpreter
 visitIfNode node@(Tree left tok _ right) intptr
     | tokenType tok == ifOperation definedTypes ||
@@ -336,7 +342,7 @@ visitIfConditionNode :: Node -> Interpreter -> Interpreter
 visitIfConditionNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok _ right) intptr
  | hasOccurred (intError conditionBranch) = intptr{intError = intError conditionBranch}
  | hasOccurred (intError errIntptr) = errIntptr 
- | conditionResult = setResult ifResult intptr
+ | conditionResult = setResult ifResult ifStatement
  | otherwise = goToNextCondition
  where 
    conditionBranch = visit leftLeft intptr
@@ -429,7 +435,7 @@ visitFunctionStatement stat intptr funcIntptr = case currentResult newIntptr of
   (Just a) -> setResult (fromJust (currentResult newIntptr)) intptr
   Nothing -> newIntptr
   where 
-    newIntptr = visit stat funcIntptr
+    newIntptr = visitStatement stat funcIntptr
 
 runResult :: Interpreter -> String -> Interpreter
 runResult inter input 

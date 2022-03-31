@@ -276,6 +276,7 @@ logicalExpression parser node
 expression :: Parser -> Node -> Parser 
 expression parser node 
   | node == Empty = expression nextExpressionParser (currentNode nextExpressionParser)
+  | tokenType (currentToken parser) == ";" = nextStatement {currentNode = Tree (currentNode parser) (currentToken parser) SeperatorNode (currentNode nextStatement)}
   | tokenType (currentToken parser) == assignOperation definedTypes =
     if tokenType (getToken node) == identifier definedTypes
     then expression returnParser (Tree node (currentToken parser) VarAssignNode (currentNode returnParser))
@@ -284,6 +285,7 @@ expression parser node
     expression returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
   where
+    nextStatement = expression (advanceParser parser) Empty
     nextExpressionParser = logicalExpression parser Empty
     returnParser = logicalExpression (advanceParser parser) Empty
 

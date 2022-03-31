@@ -55,6 +55,7 @@ createTokens lexer
               | isDigit (currentChar lexer) = makeNumber lexer 
               | isAlpha (currentChar lexer) = makeWord lexer 
               | currentChar lexer == ' ' = advanceLexer lexer 
+              | currentChar lexer == '\n' = advanceLexer lexer 
               | currentChar lexer == '+' = addToken (advanceLexer lexer) Token {tokenType = plusOperation definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '-' = 
                 case currentChar checkNextChar of 
@@ -80,6 +81,7 @@ createTokens lexer
               | currentChar lexer == ',' = addToken (advanceLexer lexer) Token {tokenType = seperatorParameter definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '&' = addToken (advanceLexer lexer) Token {tokenType = andOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | currentChar lexer == '|' = addToken (advanceLexer lexer) Token {tokenType = orOperation definedTypes, val = Nothing, pos = currentPosition lexer }
+              | currentChar lexer == ';' = addToken (advanceLexer lexer) Token {tokenType = statementSeperator definedTypes, val = Nothing, pos = currentPosition lexer}
               | currentChar lexer == '!' = 
                 if currentChar checkNextChar == '=' 
                 then addToken (advanceLexer checkNextChar) Token {tokenType = notEqualOperation definedTypes, val = Nothing, pos = currentPosition lexer }

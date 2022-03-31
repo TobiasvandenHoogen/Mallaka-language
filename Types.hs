@@ -30,6 +30,7 @@ data NodeType =
   VarAssignNode |
   BinaryOpNode |
   UnaryNode |
+  SeperatorNode |
   IfNode |
   LoopNode |
   UntilNode |
@@ -108,6 +109,9 @@ data Types = Types{intType :: String,
         runFunction :: String,
         openStatement :: String,
         closeStatement :: String,
+        newLine :: String,
+        tabSpace :: String,
+        statementSeperator :: String,
         endOfFile :: String}
         
 
@@ -162,6 +166,9 @@ definedTypes = Types{intType = "integer",
                  runFunction = "run",
                  openStatement = "->",
                  closeStatement = "<-",
+                 newLine = "\n",
+                 tabSpace = "\t",
+                 statementSeperator = ";",
                  endOfFile = "EOF"}
 
 getToken :: Node -> Token
