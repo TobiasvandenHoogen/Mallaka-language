@@ -14,7 +14,8 @@ data ErrorType = InvalidCharError String String Position |
              InvalidParameterName String String Position |
              InvalidNumberOfArguments String Int Int Position |
              InvalidOperation String String String String Position |
-             OutOfBoundsIndex String String Position 
+             OutOfBoundsIndex String String Position |
+             UnexpectedEndOfFile String Position 
 
 throwError :: Error -> ErrorType -> Error
 throwError (Error occ lst) (InvalidCharError fn err pos) = Error{
@@ -60,4 +61,9 @@ throwError (Error occ lst) (InvalidOperation fn op1 typ1 typ2 pos) = Error{
 throwError (Error occ lst) (OutOfBoundsIndex fn idx pos) = Error{
  hasOccurred = True, 
  errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: index " ++ (show idx) ++ " is out of bounds.")]
+} 
+
+throwError (Error occ lst) (UnexpectedEndOfFile fn pos) = Error{
+ hasOccurred = True, 
+ errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: unexpected end of file.")]
 } 

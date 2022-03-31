@@ -158,6 +158,7 @@ getKeyWord keyword pos
   | keyword == function definedTypes = Token{tokenType = function definedTypes, val = Nothing, pos = pos}
   | keyword == returnFunction definedTypes = Token{tokenType = returnFunction definedTypes, val = Nothing, pos = pos}
   | keyword == runFunction definedTypes = Token{tokenType = runFunction definedTypes, val = Nothing, pos = pos}
+  | keyword == printFunction definedTypes = Token{tokenType = printFunction definedTypes, val = Nothing, pos = pos}
   | otherwise = Token{tokenType = identifier definedTypes, val = Just(String(keyword)), pos = pos}
 
 

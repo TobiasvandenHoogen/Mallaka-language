@@ -36,7 +36,8 @@ data NodeType =
   UntilNode |
   FunctionAssignNode |
   FunctionRunNode |
-  ListNode
+  ListNode |
+  PrintNode
   deriving (Show, Ord, Eq) 
 
 data Node = Empty | Leaf Token NodeType | Branch Token NodeType Node | Tree Node Token NodeType Node
@@ -107,6 +108,7 @@ data Types = Types{intType :: String,
         seperatorParameter :: String,
         returnFunction  :: String,
         runFunction :: String,
+        printFunction :: String,
         openStatement :: String,
         closeStatement :: String,
         newLine :: String,
@@ -164,6 +166,7 @@ definedTypes = Types{intType = "integer",
                  seperatorParameter = ",",
                  returnFunction = "output",
                  runFunction = "run",
+                 printFunction = "see",
                  openStatement = "->",
                  closeStatement = "<-",
                  newLine = "\n",

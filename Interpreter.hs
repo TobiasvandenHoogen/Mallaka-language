@@ -2,7 +2,8 @@ module Interpreter where
 import System.IO
 import Data.Maybe
 import Data.Fixed
-import Data.Map hiding (null, map, foldr, drop, take)
+import Control.Monad
+import Data.Map hiding (null, map, foldr, drop, take, fold)
 import Data.Bits 
 import Data.List hiding (lookup, insert, delete)
 import Prelude hiding (lookup)
@@ -15,7 +16,8 @@ data Interpreter = Interpreter{
   intprFileName :: String,
   intEnv :: Environment,
   intError :: Error,
-  currentResult :: Maybe Number
+  currentResult :: Maybe Number,
+  printResultList :: [Maybe Number]
 }
   deriving Show 
 
@@ -65,7 +67,7 @@ addNumber (Number (Int val1) pos1) (Number (Int val2) pos2) intptr = setResult (
 addNumber (Number (Int val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(fromIntegral val1 + val2), numPos = pos1}) intptr
 addNumber (Number (Float val1) pos1) (Number (Int val2) pos2) intptr = setResult (Number {numberValue = Float(val1 + fromIntegral val2), numPos = pos1}) intptr
 addNumber (Number (Float val1) pos1) (Number (Float val2) pos2) intptr = setResult (Number {numberValue = Float(val1 + val2), numPos = pos1}) intptr
-addNumber (Number (String val1) pos1) (Number (String val2) pos2) intptr = setResult (Number {numberValue = String(val1 ++ val2), numPos = pos1}) intptr
+addNumber (Number (String val1) pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = String(val1 ++ (show val2)), numPos = pos1}) intptr
 addNumber (Number (List val1) pos1) (Number val2 pos2) intptr = setResult (Number {numberValue = List(val1 ++ [val2]), numPos = pos1}) intptr
 addNumber (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = throwError (intError intptr) (InvalidOperation (intprFileName intptr) (plusOperation definedTypes) (printValueType val1) (printValueType val2) (fromJust pos1))}
 
@@ -230,7 +232,7 @@ setResult num inter =
   inter{currentResult = Just num}
 
 visit :: Node -> Interpreter -> Interpreter
-visit node intptr  
+visit node intptr 
   | hasOccurred (intError intptr) = intptr 
   | typ == SeperatorNode = visitStatement node intptr 
   | typ == NumberNode = visitNumberNode node intptr
@@ -244,6 +246,7 @@ visit node intptr
   | typ == FunctionAssignNode = visitCreateFunctionNode node intptr
   | typ == FunctionRunNode = visitRunFunctionNode node intptr
   | typ == ListNode = visitListNode node intptr
+  | typ == PrintNode = visitPrintNode node intptr 
   | otherwise = error (show node)
   where 
     typ = getNodeType node
@@ -388,7 +391,7 @@ visitUntilNode node@(Tree left _ _ right) intptr
   where 
     conditionVisit = visit left intptr
     conditionResult = fromJust(currentResult (conditionVisit))
-    nextIteration = visit right intptr
+    nextIteration = visitStatement right intptr
 
 visitCreateFunctionNode :: Node -> Interpreter -> Interpreter
 visitCreateFunctionNode node@(Tree l1 _ _ (Tree r1 _ _ r2)) intptr = newEnv
@@ -410,6 +413,13 @@ visitListNode :: Node -> Interpreter -> Interpreter
 visitListNode (Branch tok typ r1) intptr = intptr{ currentResult = Just Number{numberValue = List getValues, numPos = Nothing}}
   where
     getValues = mapVisit (numberValue . fromJust . currentResult) r1 intptr 
+
+visitPrintNode :: Node -> Interpreter -> Interpreter
+visitPrintNode (Branch _ _ right) intptr  
+  | currentResult newIntpr == Nothing = newIntpr
+  | otherwise = newIntpr {printResultList = (printResultList newIntpr) ++ [(currentResult newIntpr)], currentResult = Nothing}
+  where
+    newIntpr = visit right intptr 
     
  
 visitRunFunctionNode :: Node -> Interpreter -> Interpreter
@@ -473,13 +483,13 @@ runInterpreter inter = do
 
   let result = runResult inter input
   checkResult result 
-  runInterpreter result{currentResult = Nothing}
+  runInterpreter result{currentResult = Nothing, printResultList = []}
 
 checkResult :: Interpreter -> IO ()
 checkResult inter = do 
   if  hasOccurred (intError inter)
   then putStrLn (concat (intersperse "\n" (errorMessage (intError inter)))) 
-  else printResult (currentResult inter)
+  else mapM_ printResult ((printResultList inter) ++ [(currentResult inter)])
 
 printResult :: Maybe Number -> IO ()
 printResult a 

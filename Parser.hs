@@ -194,6 +194,8 @@ atom parser
     createFunctionExpression parser
   | tokenType (currentToken parser) == runFunction definedTypes = 
     runFunctionExpression parser
+  | tokenType (currentToken parser) == printFunction definedTypes =
+    getPrintArgument {currentNode = Branch (currentToken parser) PrintNode (currentNode getPrintArgument)}
   | otherwise = 
     advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) "value" ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))}
   where 
@@ -201,6 +203,7 @@ atom parser
     createList = listExpression nextParser
     listNode = currentNode createList
     expressionParser = expression (advanceParser parser) Empty
+    getPrintArgument = atom (advanceParser parser)
 
 factor :: Parser -> Parser 
 factor parser 
@@ -276,7 +279,8 @@ logicalExpression parser node
 expression :: Parser -> Node -> Parser 
 expression parser node 
   | node == Empty = expression nextExpressionParser (currentNode nextExpressionParser)
-  | tokenType (currentToken parser) == ";" = nextStatement {currentNode = Tree (currentNode parser) (currentToken parser) SeperatorNode (currentNode nextStatement)}
+  | tokenType (currentToken parser) == ";" &&
+    tokenType (currentToken checkNextCharacter) /= "EOF" = nextStatement {currentNode = Tree (currentNode parser) (currentToken parser) SeperatorNode (currentNode nextStatement)}
   | tokenType (currentToken parser) == assignOperation definedTypes =
     if tokenType (getToken node) == identifier definedTypes
     then expression returnParser (Tree node (currentToken parser) VarAssignNode (currentNode returnParser))
@@ -286,13 +290,15 @@ expression parser node
   | otherwise = parser{currentNode = node}
   where
     nextStatement = expression (advanceParser parser) Empty
+    checkNextCharacter = advanceParser parser 
     nextExpressionParser = logicalExpression parser Empty
     returnParser = logicalExpression (advanceParser parser) Empty
 
 parse :: Parser -> Parser 
 parse parser 
   | hasOccurred (errorParser parser) = parser 
-  | tokenType (currentToken newParser) == "EOF" = newParser 
+  | tokenType (currentToken newParser) == ";" = newParser 
+  | tokenType (currentToken newParser) == "EOF" = newParser {errorParser = throwError (errorParser parser) (UnexpectedEndOfFile (file newParser) (pos (currentToken newParser)))}
   | otherwise = advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file newParser) "operator" ("\"" ++ tokenType (currentToken newParser) ++ "\"") (pos (currentToken newParser)))}
     where
       newParser = expression parser Empty

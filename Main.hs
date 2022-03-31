@@ -15,6 +15,7 @@ main = do
   intEnv = Environment{lookupTable = Data.Map.empty, 
   parent = Nothing},
   currentResult = Nothing,
+  printResultList = [],
   intError = Error{hasOccurred = False, errorMessage = []}}
   runInterpreter intptr
   return ()
