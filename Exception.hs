@@ -15,7 +15,9 @@ data ErrorType = InvalidCharError String String Position |
              InvalidNumberOfArguments String Int Int Position |
              InvalidOperation String String String String Position |
              OutOfBoundsIndex String String Position |
-             UnexpectedEndOfFile String Position 
+             UnexpectedEndOfFile String Position |
+             InvalidInput String String Position |
+             FileNotFound String String Position 
 
 throwError :: Error -> ErrorType -> Error
 throwError (Error occ lst) (InvalidCharError fn err pos) = Error{
@@ -65,5 +67,15 @@ throwError (Error occ lst) (OutOfBoundsIndex fn idx pos) = Error{
 
 throwError (Error occ lst) (UnexpectedEndOfFile fn pos) = Error{
  hasOccurred = True, 
- errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: unexpected end of file.")]
+ errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: expected a semicolon.")]
+} 
+
+throwError (Error occ lst) (InvalidInput fn inpt pos) = Error{
+ hasOccurred = True, 
+ errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: input " ++ ("\"" ++ inpt ++ "\"") ++ " is invalid.")]
+} 
+
+throwError (Error occ lst) (FileNotFound fn inpt pos) = Error{
+ hasOccurred = True, 
+ errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: file" ++ ("\"" ++ inpt ++ "\"") ++ " not found.")]
 } 

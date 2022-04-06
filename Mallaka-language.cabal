@@ -23,5 +23,7 @@ executable Mallaka-language
   ghc-options:   -w
   build-depends:       base >=4.9
                         , containers
+                        , directory 
+                        , filepath
   -- hs-source-dirs:  
   default-language:    Haskell2010

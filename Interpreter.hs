@@ -10,7 +10,10 @@ import Prelude hiding (lookup)
 import Parser
 import Lexer
 import Exception 
+import System.Directory
+import System.FilePath.Posix
 import Types
+
 
 data Interpreter = Interpreter{
   intprFileName :: String,
@@ -247,11 +250,9 @@ visit node intptr
   | typ == FunctionRunNode = visitRunFunctionNode node intptr
   | typ == ListNode = visitListNode node intptr
   | typ == PrintNode = visitPrintNode node intptr 
-  | otherwise = error (show node)
+  | otherwise = error "bruh"--(show node)
   where 
     typ = getNodeType node
-
-
 
 visitNumberNode :: Node -> Interpreter -> Interpreter
 visitNumberNode node intptr = case val tok of 
@@ -324,7 +325,7 @@ visitUnaryNode node@(Branch _ _ right) intptr
 
 visitStatement :: Node -> Interpreter -> Interpreter
 visitStatement Empty intptr = intptr 
-visitStatement (Tree left tok typ right) intptr = visit right (visit left intptr) 
+visitStatement node@(Tree left tok typ right) intptr = visit right (visit left intptr)
 visitStatement node intptr = error (show node)
 
 visitIfNode :: Node -> Interpreter -> Interpreter
@@ -391,7 +392,7 @@ visitUntilNode node@(Tree left _ _ right) intptr
   where 
     conditionVisit = visit left intptr
     conditionResult = fromJust(currentResult (conditionVisit))
-    nextIteration = visitStatement right intptr
+    nextIteration = visit right intptr
 
 visitCreateFunctionNode :: Node -> Interpreter -> Interpreter
 visitCreateFunctionNode node@(Tree l1 _ _ (Tree r1 _ _ r2)) intptr = newEnv
@@ -414,13 +415,40 @@ visitListNode (Branch tok typ r1) intptr = intptr{ currentResult = Just Number{n
   where
     getValues = mapVisit (numberValue . fromJust . currentResult) r1 intptr 
 
+visitImportNode :: Node -> Interpreter -> IO Interpreter 
+visitImportNode node@(Branch _ _ right) intptr = do 
+  let getPath = visit right intptr 
+  case hasOccurred (intError getPath) of 
+    True -> return getPath
+    False -> do 
+      case isNothing (currentResult getPath) of 
+        True -> return intptr{intError = throwError (intError intptr) (InvalidInput (intprFileName intptr) "" (pos (getToken right)))}
+        False -> do 
+          let getPathValue = numberValue (fromJust (currentResult getPath))
+          case getPathValue of 
+            String a -> visitImportFile a (pos (getToken right)) getPath
+            a -> return intptr{intError = throwError (intError intptr) (InvalidInput (intprFileName intptr) (show a) (pos (getToken right)))}
+
+  
+
 visitPrintNode :: Node -> Interpreter -> Interpreter
 visitPrintNode (Branch _ _ right) intptr  
   | currentResult newIntpr == Nothing = newIntpr
   | otherwise = newIntpr {printResultList = (printResultList newIntpr) ++ [(currentResult newIntpr)], currentResult = Nothing}
   where
     newIntpr = visit right intptr 
-    
+
+
+visitImportFile :: String -> Position -> Interpreter -> IO Interpreter 
+visitImportFile path pos intptr = do 
+  checkFile <- doesFileExist path
+  if checkFile 
+    then do 
+      handle <- openFile path ReadMode 
+      content <- hGetContents handle 
+      (runResult intptr (takeFileName path) content)
+    else return intptr{intError = throwError (intError intptr) (FileNotFound (intprFileName intptr) path pos)}
+
  
 visitRunFunctionNode :: Node -> Interpreter -> Interpreter
 visitRunFunctionNode node@(Tree l1 _ _ r1) intptr = case getEnvironmentValue (intEnv intptr) funcName of 
@@ -445,35 +473,70 @@ visitFunctionStatement stat intptr funcIntptr = case currentResult newIntptr of
   (Just a) -> setResult (fromJust (currentResult newIntptr)) intptr
   Nothing -> newIntptr
   where 
-    newIntptr = visitStatement stat funcIntptr
+    newIntptr = visit stat funcIntptr
 
-runResult :: Interpreter -> String -> Interpreter
-runResult inter input 
-  | null input = inter{intError = (Error{hasOccurred = False, errorMessage = []})}
-  | otherwise = newInter
-  where 
-    lexer = Lexer {
-      fileName = "Shell",
-      inputText = input , 
-      currentLine = 0, 
-      currentPosition = Position{
-                          index = 1,
-                          column = 1,
-                          line = 0}, 
-      currentChar = head input, 
-      lexerError = Error{hasOccurred = False, errorMessage = []},
-      tokenList = []}
-    tokenLexer = createTokens lexer 
-    parser = Parser {
-      tokens = tokenList tokenLexer,
-      tokenIndex = 1,
-      currentToken = head (tokenList tokenLexer),
-      currentNode = Empty,
-      file = fileName tokenLexer,
-      errorParser = lexerError tokenLexer}
-    nodeTree = parse parser 
-    checkInter = inter{intError = errorParser nodeTree}
-    newInter = visit (currentNode nodeTree) checkInter
+-- runResult :: Interpreter -> String -> Interpreter
+-- runResult inter input 
+--   | null input = inter{intError = (Error{hasOccurred = False, errorMessage = []})}
+--   | otherwise = newInter
+--   where 
+--     lexer = Lexer {
+--       fileName = "Shell",
+--       inputText = input , 
+--       currentLine = 0, 
+--       currentPosition = Position{
+--                           index = 1,
+--                           column = 1,
+--                           line = 0}, 
+--       currentChar = head input, 
+--       lexerError = Error{hasOccurred = False, errorMessage = []},
+--       tokenList = []}
+--     tokenLexer = createTokens lexer 
+--     parser = Parser {
+--       tokens = tokenList tokenLexer,
+--       tokenIndex = 1,
+--       currentToken = head (tokenList tokenLexer),
+--       currentNode = Empty,
+--       file = fileName tokenLexer,
+--       errorParser = lexerError tokenLexer}
+--     nodeTree = parse parser 
+--     checkInter = inter{intError = errorParser nodeTree}
+--     newInter = visit (currentNode nodeTree) checkInter
+
+runResult :: Interpreter -> String -> String -> IO Interpreter 
+runResult inter file input = do 
+  case null input of 
+    True -> return inter{intError = (Error{hasOccurred = False, errorMessage = []})}
+    _ -> do 
+      let lexer = Lexer {
+        fileName = file,
+        inputText = input , 
+        currentLine = 0, 
+        currentPosition = Position{
+                            index = 1,
+                            column = 1,
+                            line = 0}, 
+        currentChar = head input, 
+        lexerError = Error{hasOccurred = False, errorMessage = []},
+        tokenList = []}
+      let runLexer = createTokens lexer 
+      let parser = Parser {
+        tokens = tokenList runLexer,
+        tokenIndex = 1,
+        currentToken = head (tokenList runLexer),
+        currentNode = Empty,
+        file = fileName runLexer,
+      errorParser = lexerError runLexer}
+      let parseTree = parse parser 
+      let interpreter = inter{intError = errorParser parseTree}
+      case (getNodeType (currentNode parseTree)) of 
+        ImportNode -> visitImportNode (currentNode parseTree) interpreter
+        _ -> return (visit (currentNode parseTree) interpreter)
+
+
+  
+
+ 
 
 runInterpreter :: Interpreter -> IO ()
 runInterpreter inter = do 
@@ -481,15 +544,17 @@ runInterpreter inter = do
   putStr ">> " 
   input <- getLine
 
-  let result = runResult inter input
+  let result = runResult inter "Shell" input
   checkResult result 
-  runInterpreter result{currentResult = Nothing, printResultList = []}
+  newIntptr <- result 
+  runInterpreter newIntptr{currentResult = Nothing, printResultList = []}
 
-checkResult :: Interpreter -> IO ()
+checkResult :: IO Interpreter -> IO ()
 checkResult inter = do 
-  if  hasOccurred (intError inter)
-  then putStrLn (concat (intersperse "\n" (errorMessage (intError inter)))) 
-  else mapM_ printResult ((printResultList inter) ++ [(currentResult inter)])
+  checkInterpreter <- inter 
+  if  hasOccurred (intError checkInterpreter)
+  then putStrLn (concat (intersperse "\n" (errorMessage (intError checkInterpreter)))) 
+  else mapM_ printResult ((printResultList checkInterpreter) ++ [(currentResult checkInterpreter)])
 
 printResult :: Maybe Number -> IO ()
 printResult a 

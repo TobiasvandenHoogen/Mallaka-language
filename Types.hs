@@ -37,6 +37,7 @@ data NodeType =
   FunctionAssignNode |
   FunctionRunNode |
   ListNode |
+  ImportNode |
   PrintNode
   deriving (Show, Ord, Eq) 
 
@@ -108,6 +109,7 @@ data Types = Types{intType :: String,
         seperatorParameter :: String,
         returnFunction  :: String,
         runFunction :: String,
+        importFunction :: String,
         printFunction :: String,
         openStatement :: String,
         closeStatement :: String,
@@ -166,6 +168,7 @@ definedTypes = Types{intType = "integer",
                  seperatorParameter = ",",
                  returnFunction = "output",
                  runFunction = "run",
+                 importFunction = "include",
                  printFunction = "see",
                  openStatement = "->",
                  closeStatement = "<-",
@@ -193,6 +196,7 @@ printValueType (Func a) = functionType definedTypes
 printValueType (List a) = listType definedTypes
 
 getNodeType :: Node -> NodeType
+getNodeType Empty = NoType
 getNodeType (Leaf _ typ) = typ
 getNodeType (Branch _ typ _) = typ
 getNodeType (Tree _ _ typ _) = typ

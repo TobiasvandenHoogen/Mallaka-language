@@ -30,18 +30,22 @@ advanceParser parser
                         errorParser = errorParser parser}
     in result 
 
-statementExpression :: Parser -> Parser 
-statementExpression parser 
+statementExpression :: Parser -> Bool -> Parser 
+statementExpression parser isRecursing 
   | tokenType (currentToken parser) == openStatement definedTypes && tokenType (currentToken nextCharacter) == closeStatement definedTypes =
     advanceParser nextCharacter { currentNode = Leaf (Token{}) NumberNode}
-  | tokenType (currentToken parser) == openStatement definedTypes =  
+  | tokenType (currentToken parser) == openStatement definedTypes || isRecursing =  
     case tokenType (currentToken statement) of 
-      "<-" -> advanceParser statement
-      _ ->  advanceParser statement {errorParser = throwError (errorParser statement) (InvalidSyntaxError (file parser) (closeStatement definedTypes) ("\"" ++ tokenType (currentToken statement) ++ "\"") (pos (currentToken statement)))}
+      ";" -> case tokenType (currentToken checkNextAfterStatement) of
+        "<-" -> advanceParser checkNextAfterStatement
+        _ -> nextStatement {currentNode = Tree (currentNode statement) (currentToken statement) SeperatorNode (currentNode nextStatement)}
+      _ -> statement {errorParser = throwError (errorParser parser) (UnexpectedEndOfFile (file statement) (pos (currentToken statement)))}
   | otherwise = advanceParser statement {errorParser = throwError (errorParser statement) (InvalidSyntaxError (file parser) (openStatement definedTypes) ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))}
   where 
     nextCharacter = advanceParser parser
     statement = expression (advanceParser parser) Empty
+    checkNextAfterStatement = advanceParser statement
+    nextStatement = statementExpression statement True 
 
 listExpression :: Parser -> Parser 
 listExpression parser 
@@ -65,9 +69,9 @@ ifExpression parser
   | otherwise = parser {currentNode = Empty}
   where 
     condition = expression (advanceParser parser) Empty
-    statement = statementExpression condition
+    statement = statementExpression condition False
     otherStatements = ifExpression statement
-    elseStatement = statementExpression (advanceParser parser)
+    elseStatement = statementExpression (advanceParser parser) False
     ifTree = Tree ifNode (currentToken parser) IfNode (currentNode otherStatements)
     ifNode = Tree (currentNode condition) (currentToken parser) NoType (currentNode statement)
     elseNode = Tree (currentNode elseStatement) (currentToken parser) NoType Empty
@@ -90,14 +94,14 @@ loopExpression parser
     fromBranch = loopExpression(advanceParser parser)
     toBranch = loopExpression fromBranch
     withBranch = loopExpression toBranch
-    statementBranch = statementExpression withBranch
+    statementBranch = statementExpression withBranch False
 
 untilExpression :: Parser -> Parser 
 untilExpression parser = statementBranch{currentNode = untilBranch} 
   where 
     untilBranch = Tree (currentNode conditionBranch) (currentToken parser) UntilNode (currentNode statementBranch)
     conditionBranch = expression (advanceParser parser) Empty
-    statementBranch = statementExpression conditionBranch
+    statementBranch = statementExpression conditionBranch False
 
 runFunctionExpression :: Parser -> Parser 
 runFunctionExpression parser 
@@ -149,7 +153,7 @@ createParameterExpression parser
   | otherwise = advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) "function keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))}
   where
     parameterParser = registerParameters(advanceParser parser)
-    statementParser = statementExpression parameterParser
+    statementParser = statementExpression parameterParser False
     inputBranch = Tree (currentNode parameterParser) (currentToken parser) NoType (currentNode statementParser)
 
 
@@ -194,6 +198,8 @@ atom parser
     createFunctionExpression parser
   | tokenType (currentToken parser) == runFunction definedTypes = 
     runFunctionExpression parser
+  | tokenType (currentToken parser) == importFunction definedTypes =
+    getPrintArgument {currentNode = Branch (currentToken parser) ImportNode (currentNode getPrintArgument)}
   | tokenType (currentToken parser) == printFunction definedTypes =
     getPrintArgument {currentNode = Branch (currentToken parser) PrintNode (currentNode getPrintArgument)}
   | otherwise = 
@@ -279,8 +285,6 @@ logicalExpression parser node
 expression :: Parser -> Node -> Parser 
 expression parser node 
   | node == Empty = expression nextExpressionParser (currentNode nextExpressionParser)
-  | tokenType (currentToken parser) == ";" &&
-    tokenType (currentToken checkNextCharacter) /= "EOF" = nextStatement {currentNode = Tree (currentNode parser) (currentToken parser) SeperatorNode (currentNode nextStatement)}
   | tokenType (currentToken parser) == assignOperation definedTypes =
     if tokenType (getToken node) == identifier definedTypes
     then expression returnParser (Tree node (currentToken parser) VarAssignNode (currentNode returnParser))
@@ -294,12 +298,18 @@ expression parser node
     nextExpressionParser = logicalExpression parser Empty
     returnParser = logicalExpression (advanceParser parser) Empty
 
+
 parse :: Parser -> Parser 
 parse parser 
   | hasOccurred (errorParser parser) = parser 
-  | tokenType (currentToken newParser) == ";" = newParser 
+  | tokenType (currentToken newParser) == ";" = 
+    if tokenType (currentToken checkNextCharacter) == "EOF"
+    then newParser 
+    else nextStatement {currentNode = Tree (currentNode newParser) (currentToken newParser) SeperatorNode (currentNode nextStatement)}
   | tokenType (currentToken newParser) == "EOF" = newParser {errorParser = throwError (errorParser parser) (UnexpectedEndOfFile (file newParser) (pos (currentToken newParser)))}
   | otherwise = advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file newParser) "operator" ("\"" ++ tokenType (currentToken newParser) ++ "\"") (pos (currentToken newParser)))}
     where
       newParser = expression parser Empty
+      checkNextCharacter = advanceParser newParser 
+      nextStatement = expression (advanceParser newParser) Empty
 
