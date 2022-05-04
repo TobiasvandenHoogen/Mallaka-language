@@ -117,7 +117,9 @@ runFunctionExpression parser
 
 runParameterExpression :: Parser -> Parser 
 runParameterExpression parser 
-  | tokenType (currentToken parser) == openParameter definedTypes = parameterParser
+  | tokenType (currentToken parser) == openParameter definedTypes && 
+    tokenType (currentToken (advanceParser parser)) == closeParameter definedTypes = (advanceParser (advanceParser parser)){currentNode = Empty}
+  | tokenType (currentToken parser) == openParameter definedTypes  = parameterParser
   | otherwise = advanceParser parser {errorParser = throwError (errorParser parser)(InvalidSyntaxError (file parser) "function keyword" ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))}
   where
     parameterParser = runParameters(advanceParser parser)
@@ -285,10 +287,12 @@ logicalExpression parser node
 expression :: Parser -> Node -> Parser 
 expression parser node 
   | node == Empty = expression nextExpressionParser (currentNode nextExpressionParser)
-  | tokenType (currentToken parser) == assignOperation definedTypes =
-    if tokenType (getToken node) == identifier definedTypes
-    then expression returnParser (Tree node (currentToken parser) VarAssignNode (currentNode returnParser))
-    else advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) "identifier" ("\"" ++ tokenType (getToken node) ++ "\"") (pos (getToken node)))}
+  | tokenType (currentToken parser) == assignOperation definedTypes = 
+    case tokenType (getToken node) of 
+    "identifier" -> expression returnParser (Tree node (currentToken parser) VarAssignNode (currentNode returnParser))
+    "$" -> expression returnParser (Tree node (currentToken parser) IndexAssignNode (currentNode returnParser))
+    _ -> advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) "identifier" ("\"" ++ tokenType (getToken node) ++ "\"") (pos (getToken node)))}
+   
   | (tokenType (currentToken parser) == plusOperation definedTypes) || (tokenType (currentToken parser) == minusOperation definedTypes) =
     expression returnParser (Tree node (currentToken parser) BinaryOpNode (currentNode returnParser))
   | otherwise = parser{currentNode = node}
@@ -296,7 +300,7 @@ expression parser node
     nextStatement = expression (advanceParser parser) Empty
     checkNextCharacter = advanceParser parser 
     nextExpressionParser = logicalExpression parser Empty
-    returnParser = logicalExpression (advanceParser parser) Empty
+    returnParser = expression (advanceParser parser) Empty
 
 
 parse :: Parser -> Parser 
@@ -311,5 +315,5 @@ parse parser
     where
       newParser = expression parser Empty
       checkNextCharacter = advanceParser newParser 
-      nextStatement = expression (advanceParser newParser) Empty
+      nextStatement = parse (advanceParser newParser) 
 

@@ -72,10 +72,10 @@ throwError (Error occ lst) (UnexpectedEndOfFile fn pos) = Error{
 
 throwError (Error occ lst) (InvalidInput fn inpt pos) = Error{
  hasOccurred = True, 
- errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: input " ++ ("\"" ++ inpt ++ "\"") ++ " is invalid.")]
+ errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: input: " ++ ("\"" ++ inpt ++ "\"") ++ " is invalid.")]
 } 
 
 throwError (Error occ lst) (FileNotFound fn inpt pos) = Error{
  hasOccurred = True, 
- errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: file" ++ ("\"" ++ inpt ++ "\"") ++ " not found.")]
+ errorMessage = lst ++ [(fn ++ ":" ++ show(line pos) ++ ":" ++ show(index pos) ++ ": " ++ "Error: file: " ++ ("\"" ++ inpt ++ "\"") ++ " not found.")]
 } 

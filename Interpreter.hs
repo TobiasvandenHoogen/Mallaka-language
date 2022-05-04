@@ -30,12 +30,6 @@ data Environment = Environment{
 }
   deriving Show 
 
-data Number = Number{
-  numberValue :: Value,
-  numPos :: Maybe Position
-}
-  deriving (Show, Eq)
-
 
 
 getEnvironmentValue :: Environment -> String -> Maybe Value
@@ -124,6 +118,7 @@ powNumber  (Number val1 pos1) (Number val2 pos2) intptr = intptr{intError = thro
 sqrootNumber :: Number -> Interpreter -> Interpreter
 sqrootNumber (Number (Int val1) pos1) intptr = setResult (Number {numberValue = Int(round (sqrt (fromIntegral val1))), numPos = pos1}) intptr
 sqrootNumber (Number (Float val1) pos1) intptr = setResult (Number {numberValue = Float( sqrt val1), numPos = pos1}) intptr
+sqrootNumber (Number (List val1) pos1) intptr = setResult (Number {numberValue = Int (length val1), numPos = pos1}) intptr 
 sqrootNumber  (Number val1 pos1) intptr = intptr{intError = throwError (intError intptr) (InvalidSyntaxError (intprFileName intptr) ("\"integer or float\"") (printValueType val1) (fromJust pos1))}
 
 indexNumber :: Number -> Number -> Interpreter -> Interpreter
@@ -219,10 +214,10 @@ isZero (Float a)
 
 zipMapNodeTree :: (Node -> Interpreter -> Interpreter) -> [c] -> Node -> Interpreter -> [(c, Number)]
 zipMapNodeTree f [] b c = []
-zipMapNodeTree f a e@(Empty) c = [(head a,  fromJust(currentResult (f e c)))]
-zipMapNodeTree f a l@(Leaf _ _)  c = [(head a, fromJust(currentResult (f l c)))]
-zipMapNodeTree f a b@(Branch _ _ r1) c = [(head a, fromJust(currentResult (f b c)))] ++ zipMapNodeTree f (tail a) r1 c  
-zipMapNodeTree f a tr@(Tree l1 _ _ r1) c = [(head a, fromJust(currentResult (f l1 c)))] ++ zipMapNodeTree f (tail a) r1 c 
+zipMapNodeTree f a e@(Empty) c = [(head a,  getNumberSafe(currentResult (f e c)))]
+zipMapNodeTree f a l@(Leaf _ _)  c = [(head a, getNumberSafe(currentResult (f l c)))]
+zipMapNodeTree f a b@(Branch _ _ r1) c = [(head a, getNumberSafe(currentResult (f b c)))] ++ zipMapNodeTree f (tail a) r1 c  
+zipMapNodeTree f a tr@(Tree l1 _ _ r1) c = [(head a, getNumberSafe(currentResult (f l1 c)))] ++ zipMapNodeTree f (tail a) r1 c 
 
 mapVisit :: (Interpreter -> b) -> Node -> Interpreter -> [b]
 mapVisit f (Empty) intptr = []
@@ -243,6 +238,7 @@ visit node intptr
   | typ == VarAssignNode = visitVarAssignNode node intptr
   | typ == BinaryOpNode = visitBinaryOpNode node intptr
   | typ == UnaryNode = visitUnaryNode node intptr
+  | typ == IndexAssignNode = visitIndexAssignNode node intptr 
   | typ == IfNode = visitIfNode node intptr
   | typ == LoopNode = visitLoopNode node intptr
   | typ == UntilNode = visitUntilNode node intptr
@@ -276,11 +272,40 @@ visitVarAssignNode node@(Tree left tok _ right) intptr
   | otherwise = newEnv
   where
     visitValue = visit right intptr
-    valueNode = fromJust(currentResult visitValue)
+    valueNode = getNumberSafe(currentResult visitValue)
     varName = getVariableName(fromJust(val (getToken left)))
     value = setResult valueNode intptr
     valueResult = fromJust(currentResult value)
     newEnv = value {intEnv = setEnvironmentValue (intEnv value) varName (numberValue valueResult)}
+
+visitIndexAssignNode :: Node -> Interpreter -> Interpreter 
+visitIndexAssignNode node@(Tree left@(Tree l1 _ _ l2) _ _ right) intptr 
+  | hasOccurred (intError value) = intptr{intError = (intError value)}
+  | tokenType (getToken l1) == identifier definedTypes = visitAssignIndexValue (fromJust(val (getToken l1))) (getValueSafe (currentResult index)) (getValueSafe (currentResult value)) intptr (fromJust (numPos (fromJust (currentResult lst))))
+  | otherwise = visitAssignIndexValue (getValueSafe (currentResult lst)) (getValueSafe (currentResult index)) (getValueSafe (currentResult value)) intptr (fromJust (numPos (fromJust (currentResult lst))))
+  where 
+    lst = visit l1 intptr 
+    index = visit l2 lst 
+    value = visit right intptr
+
+visitAssignIndexValue :: Value -> Value -> Value -> Interpreter -> Position -> Interpreter
+visitAssignIndexValue (List val1) (Int val2) val3 intptr pos = setResult Number{ numberValue = (val1 !! val2), numPos = Nothing} intptr 
+visitAssignIndexValue (String val1) (Int val2) val3 intptr pos = 
+  case getList of 
+    Just (List val) -> 
+      case val2 < 0 && (length val + val2) >= 0 of
+        True -> intptr{ intEnv = setEnvironmentValue (intEnv intptr)  val1 (List ((take val2 val) ++ [val3] ++ (drop (val2 + 1) val))),  
+                 currentResult = Just (Number (List ((take (length val + val2) val) ++ [val3] ++ (drop (length val + val2 + 1) val))) Nothing)}
+        False -> 
+          case val2 >= 0 && length val > val2 of 
+            True -> intptr{ intEnv = setEnvironmentValue (intEnv intptr)  val1 (List ((take val2 val) ++ [val3] ++ (drop (val2 + 1) val))),  
+                 currentResult = Just (Number (List ((take val2 val) ++ [val3] ++ (drop (val2 + 1) val))) Nothing)}
+            False -> intptr{intError = throwError (intError intptr) (OutOfBoundsIndex (intprFileName intptr) (show val2) pos)}
+    Just( val ) -> intptr{intError = throwError (intError intptr) (InvalidSyntaxError (intprFileName intptr) "List" ( "\"" ++ printValueType val ++ "\"")  pos)}
+    _ -> intptr{intError = throwError (intError intptr) (NotDefinedError (intprFileName intptr) ( "\"" ++ val1 ++ "\"") pos)}
+
+  where
+    getList = getEnvironmentValue (intEnv intptr) val1
 
 visitBinaryOpNode :: Node -> Interpreter -> Interpreter
 visitBinaryOpNode node@(Tree left tok _ right) intptr
@@ -354,7 +379,7 @@ visitIfConditionNode node@(Tree left@(Tree leftLeft _ _ leftRight) tok _ right) 
    errIntptr = fst conditionVisit
    conditionResult = snd conditionVisit 
    ifStatement = visit leftRight intptr
-   ifResult = fromJust(currentResult ifStatement)
+   ifResult = getNumberSafe(currentResult ifStatement)
    goToNextCondition = 
         if right == Empty
         then intptr
@@ -470,38 +495,10 @@ setParameterValue intptr (x@(name, val):xs)  = setParameterValue (intptr {intEnv
 
 visitFunctionStatement :: Node -> Interpreter -> Interpreter -> Interpreter 
 visitFunctionStatement stat intptr funcIntptr = case currentResult newIntptr of 
-  (Just a) -> setResult (fromJust (currentResult newIntptr)) intptr
+  (Just a) -> setResult (fromJust (currentResult newIntptr)) newIntptr
   Nothing -> newIntptr
   where 
     newIntptr = visit stat funcIntptr
-
--- runResult :: Interpreter -> String -> Interpreter
--- runResult inter input 
---   | null input = inter{intError = (Error{hasOccurred = False, errorMessage = []})}
---   | otherwise = newInter
---   where 
---     lexer = Lexer {
---       fileName = "Shell",
---       inputText = input , 
---       currentLine = 0, 
---       currentPosition = Position{
---                           index = 1,
---                           column = 1,
---                           line = 0}, 
---       currentChar = head input, 
---       lexerError = Error{hasOccurred = False, errorMessage = []},
---       tokenList = []}
---     tokenLexer = createTokens lexer 
---     parser = Parser {
---       tokens = tokenList tokenLexer,
---       tokenIndex = 1,
---       currentToken = head (tokenList tokenLexer),
---       currentNode = Empty,
---       file = fileName tokenLexer,
---       errorParser = lexerError tokenLexer}
---     nodeTree = parse parser 
---     checkInter = inter{intError = errorParser nodeTree}
---     newInter = visit (currentNode nodeTree) checkInter
 
 runResult :: Interpreter -> String -> String -> IO Interpreter 
 runResult inter file input = do 
@@ -527,16 +524,11 @@ runResult inter file input = do
         currentNode = Empty,
         file = fileName runLexer,
       errorParser = lexerError runLexer}
-      let parseTree = parse parser 
+      let parseTree = parse parser
       let interpreter = inter{intError = errorParser parseTree}
       case (getNodeType (currentNode parseTree)) of 
         ImportNode -> visitImportNode (currentNode parseTree) interpreter
         _ -> return (visit (currentNode parseTree) interpreter)
-
-
-  
-
- 
 
 runInterpreter :: Interpreter -> IO ()
 runInterpreter inter = do 

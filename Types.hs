@@ -8,7 +8,9 @@ data Token = Token{ tokenType :: String,
         pos :: Position}
         deriving (Show, Eq, Ord) 
 
-data Value = Int Int |
+data Value = 
+  None |
+  Int Int |
   Float Float |
   Bool Bool |
   String String |
@@ -17,6 +19,13 @@ data Value = Int Int |
   deriving ( Ord, Eq)
 
 type List = [Value]
+
+
+data Number = Number{
+  numberValue :: Value,
+  numPos :: Maybe Position
+}
+  deriving (Show, Eq)
 
 data Position = Position {index :: Int,
   line :: Int,
@@ -30,6 +39,7 @@ data NodeType =
   VarAssignNode |
   BinaryOpNode |
   UnaryNode |
+  IndexAssignNode |
   SeperatorNode |
   IfNode |
   LoopNode |
@@ -48,6 +58,7 @@ type Ident = String
 
 
 instance Show Value where
+  show (None) = "null"
   show (Int a) = show a 
   show (Float a) = show a 
   show (Bool a) = show a 
@@ -61,7 +72,8 @@ data Function = Function{
   deriving (Ord, Eq, Show)
 
 
-data Types = Types{intType :: String, 
+data Types = Types{
+        intType :: String, 
         floatType :: String,
         stringType :: String,
         boolType :: String,
@@ -188,6 +200,7 @@ getValue (Branch tok _ _) = fromJust(val tok)
 getValue (Tree _ tok _ _) = fromJust(val tok)
 
 printValueType :: Value -> String 
+printValueType None = "null"
 printValueType (Int a) = intType definedTypes
 printValueType (Float a) = floatType definedTypes
 printValueType (Bool a) = boolType definedTypes
@@ -207,6 +220,15 @@ getNodeLength (Leaf _ _ ) = 1
 getNodeLength (Branch _ _ r1) = 1 + getNodeLength r1
 getNodeLength (Tree l1 _ _ r1) = 1 + getNodeLength r1
 
+getValueSafe :: Maybe Number -> Value 
+getValueSafe n = case n of 
+  Just a -> numberValue a 
+  Nothing -> None 
+
+getNumberSafe :: Maybe Number -> Number 
+getNumberSafe n = case n of 
+  Just n -> n 
+  Nothing -> Number{numberValue = None, numPos = Nothing}
 
 mapInterpreter :: a -> (a -> b) -> (c -> d) -> [d]
 mapInterpreter = undefined 

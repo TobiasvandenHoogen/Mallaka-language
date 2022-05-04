@@ -52,6 +52,7 @@ createTokens lexer
         tokens =  
           createTokens newLexer where 
             newLexer
+              | currentChar lexer == '@' = lexComments lexer 
               | isDigit (currentChar lexer) = makeNumber lexer 
               | isAlpha (currentChar lexer) = makeWord lexer 
               | currentChar lexer == ' ' = advanceLexer lexer 
@@ -97,6 +98,12 @@ createTokens lexer
                   _  -> addToken (advanceLexer lexer) Token {tokenType = greaterOperation definedTypes, val = Nothing, pos = currentPosition lexer }
               | otherwise = advanceLexer lexer{lexerError = throwError (lexerError lexer) (InvalidCharError (fileName lexer) ( "\"" ++ [currentChar lexer] ++ "\"") (currentPosition lexer))}
             checkNextChar = advanceLexer lexer 
+
+
+lexComments :: Lexer -> Lexer 
+lexComments lexer 
+  | currentChar lexer /= '\n' = lexComments (advanceLexer lexer) 
+  | otherwise = lexer
 
 
 addToken :: Lexer -> Token -> Lexer
