@@ -232,7 +232,7 @@ setResult num inter =
 visit :: Node -> Interpreter -> Interpreter
 visit node intptr 
   | hasOccurred (intError intptr) = intptr 
-  | typ == SeperatorNode = visitStatement node intptr 
+  | typ == SeparatorNode = visitStatement node intptr 
   | typ == NumberNode = visitNumberNode node intptr
   | typ == VarAccessNode = visitVarAccessNode node intptr
   | typ == VarAssignNode = visitVarAssignNode node intptr

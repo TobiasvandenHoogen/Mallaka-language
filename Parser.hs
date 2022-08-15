@@ -38,7 +38,7 @@ statementExpression parser isRecursing
     case tokenType (currentToken statement) of 
       ";" -> case tokenType (currentToken checkNextAfterStatement) of
         "<-" -> advanceParser checkNextAfterStatement
-        _ -> nextStatement {currentNode = Tree (currentNode statement) (currentToken statement) SeperatorNode (currentNode nextStatement)}
+        _ -> nextStatement {currentNode = Tree (currentNode statement) (currentToken statement) SeparatorNode (currentNode nextStatement)}
       _ -> statement {errorParser = throwError (errorParser parser) (UnexpectedEndOfFile (file statement) (pos (currentToken statement)))}
   | otherwise = advanceParser statement {errorParser = throwError (errorParser statement) (InvalidSyntaxError (file parser) (openStatement definedTypes) ("\"" ++ tokenType (currentToken parser) ++ "\"") (pos (currentToken parser)))}
   where 
@@ -309,7 +309,7 @@ parse parser
   | tokenType (currentToken newParser) == ";" = 
     if tokenType (currentToken checkNextCharacter) == "EOF"
     then newParser 
-    else nextStatement {currentNode = Tree (currentNode newParser) (currentToken newParser) SeperatorNode (currentNode nextStatement)}
+    else nextStatement {currentNode = Tree (currentNode newParser) (currentToken newParser) SeparatorNode (currentNode nextStatement)}
   | tokenType (currentToken newParser) == "EOF" = newParser {errorParser = throwError (errorParser parser) (UnexpectedEndOfFile (file newParser) (pos (currentToken newParser)))}
   | otherwise = advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file newParser) "operator" ("\"" ++ tokenType (currentToken newParser) ++ "\"") (pos (currentToken newParser)))}
     where
