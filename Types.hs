@@ -3,21 +3,22 @@ Module      : Types
 Description : The data types and functions which are used by multiple modules (ie Lexer, Parser, Interpreter)
 Maintainer  : Tobias van den Hoogen  
 -}
-module Types where 
+module Types where
 
 import Data.Maybe
+import Data.Map hiding (null, map, foldr, drop, take, fold)
 
 -- This section defines the data types which are used across multiple files 
 
 -- | The token data type which is created by the lexer and used by the parser 
-data Token = Token{ 
+data Token = Token{
   -- | The token type 
   tokenType :: String,
   -- | The value the token contains 
   val :: Maybe Value,
   -- | The position of the token 
   pos :: Position}
-  deriving (Show, Eq, Ord) 
+  deriving (Show, Eq, Ord)
 
 
 -- | Data type that contains the position of a token or statement for error messaging 
@@ -26,13 +27,22 @@ data Position = Position {
   index :: Int,
   line :: Int,
   column :: Int}
-  deriving (Show, Eq, Ord) 
+  deriving (Show, Eq, Ord)
+
+--- | Data type to save the value or the memory location of the 
+data Environment = Environment{
+  lookupTable :: Map String Value,
+  parent :: Maybe Environment
+}
+  deriving Show
+
+
 
 
 -- | The different token types the Mallaka Language contains 
 data Types = Types{
   -- | The integer token
-  intType :: String, 
+  intType :: String,
   -- | The float token
   floatType :: String,
   -- | The string token 
@@ -62,7 +72,7 @@ data Types = Types{
   -- | The exponential operation token 
   powerOperation :: String,
   -- | The square root operation token 
-  sqrootOperation :: String, 
+  sqrootOperation :: String,
   -- | The variable assign token 
   assignOperation :: String,
   -- | The modulo operation token 
@@ -138,7 +148,7 @@ data Types = Types{
 
 
 -- | All the value types in the Mallaka language 
-data Value = 
+data Value =
   -- | The null type 
   None |
   -- | The integer type 
@@ -152,7 +162,7 @@ data Value =
   -- | The function type 
   Func Function |
   -- | The list type 
-  List List 
+  List List
   deriving ( Ord, Eq)
 
 -- | Datatype that stores a function 
@@ -175,17 +185,17 @@ instance Show Value where
   -- Print "null" when the value is empty 
   show (None) = "null"
   -- Extract integer value and convert it to a string 
-  show (Int a) = show a 
+  show (Int a) = show a
   -- Extract float value and convert it to a string 
-  show (Float a) = show a 
+  show (Float a) = show a
   -- Extract integer value and convert it to a string 
-  show (Bool a) = show a 
+  show (Bool a) = show a
   -- Extract integer value and convert it to a string 
-  show (String a) = a 
+  show (String a) = a
   -- Extract integer value and convert it to a string 
-  show (Func a) = (show a)
+  show (Func a) = show a
   -- Extract integer value and convert it to a string 
-  show (List a) = (show a)
+  show (List a) = show a
 
 -- | Datatype used to store the result of the parse tree 
 data Number = Number{
@@ -198,20 +208,20 @@ data Number = Number{
 
 
 -- | The node datatype which is used to create a parse tree 
-data Node = 
+data Node =
   -- | The empty node which contains no token 
-  Empty | 
+  Empty |
   -- | The leaf node that does not expand
-  Leaf Token NodeType | 
+  Leaf Token NodeType |
   -- | The branch node that expands to the right side 
-  Branch Token NodeType Node | 
+  Branch Token NodeType Node |
   -- | The tree node that expands to the left and right side 
   Tree Node Token NodeType Node
   deriving (Show, Ord, Eq)
 
 
 -- | Datatype used to indicate the different types of the nodes created by the parse tree 
-data NodeType = 
+data NodeType =
   -- | The node type is not important 
   NoType |
   -- | The node contains a value 
@@ -244,14 +254,34 @@ data NodeType =
   ImportNode |
   -- | Print function call node 
   PrintNode
-  deriving (Show, Ord, Eq) 
+  deriving (Show, Ord, Eq)
 
 
 -- This section defines the functions which are used across multiple files 
-        
+
+
+getEnvironmentValue :: Environment -> String -> Maybe Value
+getEnvironmentValue env name =
+  if isNothing returnValue && isJust(parent env)
+  then getEnvironmentValue (fromJust(parent env))name
+  else returnValue
+  where
+    returnValue = Data.Map.lookup name (lookupTable env)
+
+setEnvironmentValue :: Environment -> String -> Value -> Environment
+setEnvironmentValue env key value =
+  env{lookupTable = newLookuptable}
+  where
+    newLookuptable = insert key value (lookupTable env)
+
+removeEnvironmentValue :: Environment -> String -> Environment
+removeEnvironmentValue env key =
+  env{lookupTable = newLookuptable}
+  where
+    newLookuptable = delete key (lookupTable env)
 
 -- | The defined tokens with its corresponding string value
-definedTypes :: Types 
+definedTypes :: Types
 definedTypes = Types{
   intType = "integer",
   floatType = "float",
@@ -314,12 +344,12 @@ getToken (Branch tok _ _) = tok
 getToken (Tree _ tok _ _) = tok
 
 getValue :: Node -> Value
-getValue Empty = None 
+getValue Empty = None
 getValue (Leaf tok _) = fromJust(val tok)
 getValue (Branch tok _ _) = fromJust(val tok)
 getValue (Tree _ tok _ _) = fromJust(val tok)
 
-printValueType :: Value -> String 
+printValueType :: Value -> String
 printValueType None = "null"
 printValueType (Int a) = intType definedTypes
 printValueType (Float a) = floatType definedTypes
@@ -335,18 +365,14 @@ getNodeType (Branch _ typ _) = typ
 getNodeType (Tree _ _ typ _) = typ
 
 getNodeLength :: Node -> Int
-getNodeLength Empty = 0 
+getNodeLength Empty = 0
 getNodeLength (Leaf _ _ ) = 1
 getNodeLength (Branch _ _ r1) = 1 + getNodeLength r1
 getNodeLength (Tree l1 _ _ r1) = 1 + getNodeLength r1
 
-getValueSafe :: Maybe Number -> Value 
-getValueSafe n = case n of 
-  Just a -> numberValue a 
-  Nothing -> None 
+getValueSafe :: Maybe Number -> Value
+getValueSafe = maybe None numberValue
 
-getNumberSafe :: Maybe Number -> Number 
-getNumberSafe n = case n of 
-  Just n -> n 
-  Nothing -> Number{numberValue = None, numPos = Nothing}
+getNumberSafe :: Maybe Number -> Number
+getNumberSafe = fromMaybe Number {numberValue = None, numPos = Nothing}
 

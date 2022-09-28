@@ -54,7 +54,7 @@ listExpression parser
   | tokenType (currentToken getElement) == closeList definedTypes = (advanceParser getElement){currentNode = endOfElementTree}
   | otherwise = advanceParser parser {errorParser = throwError (errorParser parser) (InvalidSyntaxError (file parser) (closeList definedTypes) ( "\"" ++ tokenType (currentToken parser) ++ "\"")  (pos (currentToken parser)))}
   where 
-    getElement = (atom (parser))
+    getElement = atom (parser)
     elementTree = Tree (currentNode getElement) (currentToken getElement) NoType (currentNode nextElement)
     nextElement = listExpression (advanceParser getElement)
     endOfElementTree = Tree (currentNode getElement) (currentToken getElement)  NoType Empty

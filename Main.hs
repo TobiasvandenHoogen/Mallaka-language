@@ -5,17 +5,16 @@ import Lexer
 import Parser 
 import Data.Map
 import Types
-import Interpreter
+import Compiler
 import Exception 
 ----------Runner 
 
 main :: IO ()
 main = do
-  let intptr = Interpreter {intprFileName = "Shell",
-  intEnv = Environment{lookupTable = Data.Map.empty, 
-  parent = Nothing},
-  currentResult = Nothing,
-  printResultList = [],
-  intError = Error{hasOccurred = False, errorMessage = []}}
-  runInterpreter intptr
+  let cmplr = Compiler {
+              compFileName = "Shell",
+              compEnv = Environment{lookupTable = Data.Map.empty},
+              compResult = "", 
+              compError = Error{hasOccurred = False, errorMessage = []}}
+  runCompiler cmplr
   return ()
