@@ -11,19 +11,36 @@ license-file:        LICENSE
 author:              Tobias van den Hoogen
 maintainer:          tobias.vandenhoogen@student.hu.nl
 -- copyright:           
--- category:            
+-- category:       
 build-type:          Simple
 extra-source-files:  ChangeLog.md, README.md
 cabal-version:       >=1.10
 
 executable Mallaka-language
-  main-is:             Main.hs
-  other-modules:       Types, Exception, Lexer, Parser, Interpreter 
+  main-is:             Source/Main.hs
+  other-modules:       Source.Types, Source.Exception, Source.Lexer, Source.Parser, Source.Interpreter 
   -- other-extensions:    '
-  ghc-options:   -w
+  ghc-options:   -Wall -Wcompat -Widentities -Wincomplete-uni-patterns -Wincomplete-record-updates -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wmissing-deriving-strategies -Wunused-packages -fhide-source-paths -freverse-errors
   build-depends:       base >=4.9
                         , containers
                         , directory 
                         , filepath
+          
   -- hs-source-dirs:  
   default-language:    Haskell2010
+
+
+test-suite Mallaka-language-testsuite
+  type:                     exitcode-stdio-1.0
+  main-is:  Test/Test.hs
+  other-modules: Source.Types, Source.Exception, Source.Lexer, Source.Parser, Source.Interpreter Test.UnitTests Test.IntegrationTests Test.SystemTests
+  ghc-options:   -Wall -Wcompat -Widentities -Wincomplete-uni-patterns -Wincomplete-record-updates -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wmissing-deriving-strategies -Wunused-packages -fhide-source-paths -freverse-errors
+  build-depends:       base >=4.9
+                        , containers
+                        , directory 
+                        , filepath
+                        , tasty
+                        , tasty-hunit
+                        , tasty-quickcheck 
+                        , tasty-smallcheck
+                        

@@ -21,9 +21,9 @@ process partition {lst, low, high} ->
   j = low;
 
   @ Loop through each index of the list within the partition 
-  loop from j to (high - 1) with 1 ->
+  loop from j to (high) with 1 ->
     @ If the element is equal or smaller than the pivot 
-    whatif((lst $ j) <= pivot)->
+    whatif((lst $ j) < pivot)->
       @ Swap the position with the greater element
       i = i + 1;
       tempI = lst $ i;
