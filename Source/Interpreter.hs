@@ -24,16 +24,17 @@ import Source.Types
 import GHC.Float (int2Float)
 
 
-
-data Interpreter = Interpreter{
-  intprFileName :: String,
-  intEnv :: Environment,
-  intError :: Error,
-  currentResult :: Maybe Result,
-  printResultList :: [Maybe Result]
-}
+-- | The interpreter of the Mallaka Language 
+data Interpreter = Interpreter
+  {intprFileName :: String
+  , intEnv :: Environment
+  , intError :: Error
+  , currentResult :: Maybe Result
+  , printResultList :: [Maybe Result]
+  }
   deriving stock Show
 
+-- | The environment of the Mallaka Language which stores the variables
 data Environment = Environment{
   lookupTable :: Map String Value,
   parent :: Maybe Environment

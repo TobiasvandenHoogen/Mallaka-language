@@ -25,7 +25,7 @@ data ErrorType
     | UnexpectedEndOfFile String Position 
     | InvalidInput String String Position 
     | FileNotFound String String Position 
-    | DeveloperException  String  
+    | DeveloperException String  
 
 throwError :: Error -> ErrorType -> Error
 throwError (Error _ lst) (InvalidCharError fn err position) = Error{

@@ -12,7 +12,7 @@ import Data.Bifunctor ( Bifunctor(first) )
 import Source.Exception
 import Source.Types
 
--- | The token data type which is created by the lexer and used by the parser 
+-- | The Lexer of the Mallaka Language
 data Lexer = Lexer{
     fileName :: String,
     inputText :: String,

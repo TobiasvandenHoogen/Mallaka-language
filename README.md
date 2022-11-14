@@ -80,3 +80,81 @@ Run the following command to run the unit, integration and system tests within t
 ```shell
 cabal test
 ```
+
+# Doc 
+Some parts of the code is commented with Haddock. To generate these comments in a HTML based view use the following commands. 
+
+```shell
+cabal haddock --haddock-all
+cd dist-newstyle/t/doc
+```
+
+# Usage
+The Mallaka Language offers the following functionalities.
+
+<br>
+
+## Variable deceleration  
+
+```
+a = 10;
+b = 10.0;
+c = True;
+d = "Hello";
+e = [1, 2, 3];
+```
+<br>
+
+## Mathematical operations 
+
+```
+10 + 9.0;
+50 - 170.8;
+5 * 7;
+10.0 / 2.0;
+carrot 81; @square root
+5 ^ 10;
+```
+
+## List operations 
+```
+[1, 2, 3] + [4, 5] @[1,2,3,4,5]
+[1, 2, 3] - 2 @[1,2]
+[1, 2, 3] * 2 @ [1,2,3,2]
+carrot [1,2,3] @3
+```
+
+## If statements 
+
+```
+whatif(a == 1) ->10;<- 
+orwhatif(a == 2) ->20;<-
+orelse->30;<-;
+```
+
+## For loops
+
+```
+from 0 to 100 with 1 ->(a = a + 1;)<-;
+```
+
+## Until loops
+```
+until(a >= 100) ->(a = a + 1;)<-;
+```
+
+## Functions
+```
+process a {b} ->b + 5;<-;
+run a {10};
+```
+
+## Include files
+```
+include "quicksort.ma";
+```
+
+## Print statement
+```
+a = [1,2,3]; see a;
+```

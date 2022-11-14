@@ -13,6 +13,7 @@ import Source.Types
 
 ----------Parser
 
+-- | The Parser of the Mallaka Language 
 data Parser = Parser{
   tokens :: [Token],
   tokenIndex :: Int,
