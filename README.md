@@ -55,7 +55,7 @@ brew install ghc cabal-install
 ```
 <br>
 
-## Installation: Packages 
+
 
 <br>
 
@@ -69,6 +69,13 @@ cabal run
 <br>
 
 # Test
+If you want to test the interpreter. You must install the following packages:
+```shell
+cabal install tasty --lib
+cabal install tasty-hunit --lib
+```
+<br>
+
 Run the following command to run the unit, integration and system tests within the repository. 
 ```shell
 cabal test

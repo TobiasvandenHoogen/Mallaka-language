@@ -1,3 +1,8 @@
+{- 
+Module      : Exception
+Description : The exceptions that can occur when using or editing the Mallaka Interpreter 
+Maintainer  : Tobias van den Hoogen  
+-}
 {-# LANGUAGE DerivingStrategies #-}
 module Source.Exception(module Source.Exception) where 
 import Source.Types
@@ -7,18 +12,20 @@ data Error = Error{
   errorMessage :: [String]
 }  deriving stock (Show, Eq, Ord) 
 
-data ErrorType = InvalidCharError String String Position |
-             InvalidSyntaxError String String String Position |
-             DivisionByZeroError String Position |
-             NotDefinedError String String Position |
-             ConditionError String Position |
-             InvalidParameterName String String Position |
-             InvalidNumberOfArguments String Int Int Position |
-             InvalidOperation String String String String Position |
-             OutOfBoundsIndex String String Position |
-             UnexpectedEndOfFile String Position |
-             InvalidInput String String Position |
-             FileNotFound String String Position 
+data ErrorType  
+    = InvalidCharError String String Position 
+    | InvalidSyntaxError String String String Position 
+    | DivisionByZeroError String Position 
+    | NotDefinedError String String Position 
+    | ConditionError String Position 
+    | InvalidParameterName String String Position 
+    | InvalidNumberOfArguments String Int Int Position 
+    | InvalidOperation String String String String Position 
+    | OutOfBoundsIndex String String Position 
+    | UnexpectedEndOfFile String Position 
+    | InvalidInput String String Position 
+    | FileNotFound String String Position 
+    | DeveloperException  String  
 
 throwError :: Error -> ErrorType -> Error
 throwError (Error _ lst) (InvalidCharError fn err position) = Error{
@@ -79,4 +86,9 @@ throwError (Error _ lst) (InvalidInput fn inpt position) = Error{
 throwError (Error _ lst) (FileNotFound fn inpt position) = Error{
  hasOccurred = True, 
  errorMessage = lst ++ [fn ++ ":" ++ show(posLine position) ++ ":" ++ show(posIndex position) ++ ": " ++ "Error: file: " ++ ("\"" ++ inpt ++ "\"") ++ " not found."]
+} 
+
+throwError (Error _ lst) (DeveloperException fn) = Error{
+ hasOccurred = True, 
+ errorMessage = lst ++ [fn ++ ": " ++ "Error: The code has been tampered with which caused a unexpected outcome."]
 } 

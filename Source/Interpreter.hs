@@ -288,7 +288,7 @@ visitVarAssignNode (Tree left _ _ right) intptr
     value = setResult valueNode intptr
     valueResult = fromJust(currentResult value)
     newEnv = value {intEnv = setEnvironmentValue (intEnv value) varName (resultValue valueResult)}
-visitVarAssignNode _ intptr = intptr
+visitVarAssignNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitIndexAssignNode :: Node -> Interpreter -> Interpreter
 visitIndexAssignNode (Tree (Tree l1 _ _ l2) _ _ right) intptr
@@ -299,7 +299,7 @@ visitIndexAssignNode (Tree (Tree l1 _ _ l2) _ _ right) intptr
     lst = visit l1 intptr
     indexValue = visit l2 lst
     value = visit right intptr
-visitIndexAssignNode _ intptr = intptr
+visitIndexAssignNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitAssignIndexValue :: Value -> Value -> Value -> Interpreter -> Position -> Interpreter
 visitAssignIndexValue (ListValue val1) (IntValue val2) _ intptr _ = setResult Result{ resultValue = val1 !! val2, resultPos = Nothing} intptr
@@ -319,7 +319,7 @@ visitAssignIndexValue (StringValue val1) (IntValue val2) val3 intptr position =
 
   where
     getList = getEnvironmentValue (intEnv intptr) val1
-visitAssignIndexValue _ _ _ intptr _ = intptr
+visitAssignIndexValue _ _ _ intptr _ = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitBinaryOpNode :: Node -> Interpreter -> Interpreter
 visitBinaryOpNode (Tree left tok _ right) intptr
@@ -350,7 +350,7 @@ visitBinaryOpNode (Tree left tok _ right) intptr
       if isZero (resultValue num2)
       then intptr{intError = throwError (intError intptr) (DivisionByZeroError (intprFileName intptr) (tokenPos tok))}
       else divResult num1 num2 intptr
-visitBinaryOpNode _ intptr = intptr
+visitBinaryOpNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitUnaryNode :: Node -> Interpreter -> Interpreter
 visitUnaryNode node@(Branch _ _ right) intptr
@@ -362,7 +362,7 @@ visitUnaryNode node@(Branch _ _ right) intptr
     visitValue = visit right intptr
     num1 = fromJust(currentResult visitValue)
     tok = getToken node
-visitUnaryNode _ intptr = intptr
+visitUnaryNode _ intptr =intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitStatement :: Node -> Interpreter -> Interpreter
 visitStatement Empty intptr = intptr
@@ -400,7 +400,7 @@ visitIfConditionNode (Tree (Tree leftLeft _ _ leftRight) _ _ right) intptr
         if right == Empty
         then intptr
         else visitIfNode right intptr
-visitIfConditionNode _ intptr = intptr
+visitIfConditionNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitLoopNode :: Node -> Interpreter -> Interpreter
 visitLoopNode (Tree (Tree leftLeft _ _ leftRight) _ _ (Tree rightLeft _ _ rightRight)) intptr
@@ -415,7 +415,7 @@ visitLoopNode (Tree (Tree leftLeft _ _ leftRight) _ _ (Tree rightLeft _ _ rightR
     withValue = fromJust(currentResult withVisit )
     statementNode = rightRight
 visitLoopNode (Branch _ _ right) intptr = visit right intptr
-visitLoopNode _ intptr = intptr
+visitLoopNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 
 runLoopNode :: Result -> Result -> Result -> Node -> Interpreter -> Interpreter
@@ -436,7 +436,7 @@ visitUntilNode node@(Tree left _ _ right) intptr
     conditionVisit = visit left intptr
     conditionResult = fromJust(currentResult conditionVisit)
     nextIteration = visit right intptr
-visitUntilNode _ intptr = intptr
+visitUntilNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitCreateFunctionNode :: Node -> Interpreter -> Interpreter
 visitCreateFunctionNode (Tree l1 _ _ (Tree r1 _ _ r2)) intptr = newEnv
@@ -445,7 +445,7 @@ visitCreateFunctionNode (Tree l1 _ _ (Tree r1 _ _ r2)) intptr = newEnv
    param = visitCreateParameterNode r1
    function_object = Function{functionParameters = param, functionStatement = r2}
    newEnv = intptr {intEnv = setEnvironmentValue (intEnv intptr) funcName (FunctionValue function_object)}
-visitCreateFunctionNode _ intptr = intptr
+visitCreateFunctionNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 
 visitCreateParameterNode :: Node -> [String]
@@ -456,7 +456,7 @@ visitListNode :: Node -> Interpreter -> Interpreter
 visitListNode (Branch _ _ r1) intptr = intptr{ currentResult = Just Result{resultValue = ListValue getValues, resultPos = Nothing}}
   where
     getValues = mapVisit (resultValue . fromJust . currentResult) r1 intptr
-visitListNode _ intptr = intptr
+visitListNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitImportNode :: Node -> Interpreter -> IO Interpreter
 visitImportNode (Branch _ _ right) intptr = do
@@ -473,7 +473,7 @@ visitImportNode (Branch _ _ right) intptr = do
               newint <- visitImportFile a (tokenPos (getToken right)) getPath
               return newint{currentResult = Nothing }
             a -> return intptr{intError = throwError (intError intptr) (InvalidInput (intprFileName intptr) (show a) (tokenPos (getToken right)))}
-visitImportNode _ intptr = return intptr
+visitImportNode _ intptr = return intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 
 
@@ -483,7 +483,7 @@ visitPrintNode (Branch _ _ right) intptr
   | otherwise = newIntpr {printResultList = printResultList newIntpr ++ [currentResult newIntpr], currentResult = Nothing}
   where
     newIntpr = visit right intptr
-visitPrintNode _ intptr = intptr
+visitPrintNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 
 visitImportFile :: String -> Position -> Interpreter -> IO Interpreter
@@ -504,7 +504,7 @@ visitRunFunctionNode (Tree l1 _ _ r1) intptr = case getEnvironmentValue (intEnv 
   _ -> intptr{intError = throwError (intError intptr) (InvalidSyntaxError (intprFileName intptr) "function" ( "\"" ++ tokenType (getToken l1) ++ "\"")  (tokenPos (getToken l1)))}
   where
     funcName = show(fromJust(tokenVal (getToken l1)))
-visitRunFunctionNode _ intptr = intptr
+visitRunFunctionNode _ intptr = intptr{intError = throwError (intError intptr) (DeveloperException (intprFileName intptr))}
 
 visitRunParameters :: Node -> [String] -> Interpreter -> Interpreter
 visitRunParameters parVal parNam intptr = if getNodeLength parVal == length parNam then

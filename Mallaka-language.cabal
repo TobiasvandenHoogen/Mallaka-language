@@ -41,6 +41,5 @@ test-suite Mallaka-language-testsuite
                         , filepath
                         , tasty
                         , tasty-hunit
-                        , tasty-quickcheck 
-                        , tasty-smallcheck
+ 
                         
